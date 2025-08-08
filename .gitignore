@@ -1,0 +1,31 @@
+# node_modules/ directory
+node_modules/
+package-lock.json
+
+# log files
+*.log
+
+# temporary files
+*.tmp
+
+# system files
+**/.DS_Store
+Thumbs.db
+
+# configuration files
+.env
+
+# database files
+db.sqlite
+
+# ignored directories
+ignore/
+
+# gcloud files
+app.yaml
+
+# vscode files
+.vscode/
+
+# wiz-pay front-end
+dist/
