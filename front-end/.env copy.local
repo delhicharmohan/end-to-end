@@ -1,0 +1,5 @@
+NODE_ENV=production
+VUE_APP_SOCKET_URL=https://20240328t022808-dot-best-live-404609.uc.r.appspot.com
+VUE_APP_BASE_URL=https://20240328t022808-dot-best-live-404609.uc.r.appspot.com
+VUE_APP_API_URL=https://20240328t022808-dot-best-live-404609.uc.r.appspot.com/api/v1
+VUE_APP_TIMEZONE='Asia/Kolkata'

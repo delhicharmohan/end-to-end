@@ -1,0 +1,736 @@
+openapi: "3.0.3"
+info:
+  title: "WizPay API"
+  version: "1.0"
+  description: "WizPay API"
+servers:
+  - url: "http://localhost:3000/"
+    description: "Localhost API"
+paths:
+  /api/v1/login:
+    post:
+      summary: "Login"
+      description: "Login"
+      operationId: "login"
+      tags:
+        - "Auth"
+      requestBody:
+        description: "Login data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginData"
+      responses:
+        "200":
+          description: "Login"
+          headers:
+            Set-Cookie:
+              description: Auth cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - "message"
+                  - "token"
+                properties:
+                  message:
+                    type: string
+                    description: "Success Response"
+                    example: "Login successful"
+                  token:
+                    type: string
+                    description: "JWT token"
+  /api/v1/user:
+    get:
+      summary: "Get all users"
+      description: "Get all users"
+      operationId: "getUsers"
+      tags:
+        - "User"
+      responses:
+        "200":
+          description: "Users"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponseData"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      summary: "Create user"
+      description: "Create user"
+      operationId: "createUser"
+      tags:
+        - "User"
+      requestBody:
+        description: "User data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateData"
+      responses:
+        "201":
+          description: "User created"
+          content:
+            application/json:
+              schema:
+                 type: object
+                 required:
+                 - "message"
+                 properties:
+                  message:
+                    type: string
+                    description: "Success Response"
+                    example: "User created"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/user/{username}:
+    post:
+      summary: "Update User"
+      description: "Update User"
+      operationId: "updateUser"
+      tags:
+        - "User"
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+          description: "Username"
+      requestBody:
+        description: "User data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateData"
+      responses:
+        "200":
+          description: "User updated"
+          content:
+            application/json:
+              schema:
+                  type: object
+                  required:
+                  - "message"
+                  properties:
+                    message:
+                      type: string
+                      description: "Success Response"
+                      example: "User updated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      summary: "Delete User"
+      description: "Delete User"
+      operationId: "deleteUser"
+      tags:
+        - "User"
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+          description: "Username"
+      responses:
+        "200":
+          description: "User deleted"
+          content:
+            application/json:
+              schema:
+                  type: object
+                  required:
+                  - "message"
+                  properties:
+                    message:
+                      type: string
+                      description: "Success Response"
+                      example: "User deleted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/order/:
+    get:
+      summary: "Get all orders"
+      description: "Get all orders"
+      operationId: "getOrders"
+      tags:
+        - "Order"
+      responses:
+        "200":
+          description: "Orders"
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - "pagination"
+                  - "data"
+                properties:
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrderResponseData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    put:
+      summary: "Create order"
+      description: "Create order"
+      operationId: "createOrder"
+      tags:
+        - "Order"
+      parameters:
+        - $ref: "#/components/parameters/x-key"
+        - $ref: "#/components/parameters/x-hash"
+      requestBody:
+        description: "Order data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderCreateData"
+      responses:
+        "201":
+          description: "Order created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /api/v1/order/{refID}:
+    get:
+      summary: "Get order"
+      description: "Get order"
+      operationId: "getOrder"
+      tags:
+        - "Order"
+      parameters:
+        - in: path
+          name: refID
+          schema:
+            type: string
+          required: true
+          description: "Reference ID"
+      responses:
+        "200":
+          description: "Order details"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderStatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      summary: "Approve Order"
+      description: "Approve Order"
+      operationId: "approveOrder"
+      tags:
+        - "Order"
+      parameters:
+        - in: path
+          name: refID
+          schema:
+            type: string
+          required: true
+          description: "Reference ID"
+      requestBody:
+        description: "Order data"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderApproveData"
+      responses:
+        "200":
+          description: "Order approved"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: "Success Response"
+                    example: "Order approved"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  responses:
+    BadRequest:
+      description: "Bad request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: "Not found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalServerError:
+      description: "Internal server error"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  parameters:
+    x-key:
+      name: x-key
+      in: header
+      description: "API key"
+      required: true
+      schema:
+        type: string
+    x-hash:
+      name: x-hash
+      in: header
+      description: "HMAC SHA256 base64 encoded hash of the request body. Use the pre-shared secret to hash."
+      required: true
+      schema:
+        type: string
+  schemas:
+    LoginData:
+      type: object
+      required:
+        - "username"
+        - "password"
+      properties:
+        username:
+          type: string
+          description: "Username"
+          example: "john"
+        password:
+          type: string
+          description: "Password"
+          example: "password"
+    Pagination:
+      type: object
+      properties:
+        offset:
+          type: integer
+          description: "Offset"
+          example: 0
+        limit:
+          type: integer
+          description: "Limit"
+          example: 10
+        total:
+          type: integer
+          description: "Total"
+          example: 100
+    UserResponseData:
+      type: object
+      required:
+        - "username"
+        - "upiid"
+        - "role"
+        - "status"
+      properties:
+        username:
+          type: string
+          description: "Username"
+          example: "john"
+        upiid:
+          type: string
+          description: "UPI ID"
+          example: "john@upi"
+        role:
+          type: string
+          description: "Role"
+          enum:
+            - "admin"
+            - "user"
+          example: "user"
+        status:
+          type: boolean
+          description: "Status"
+          example: true
+    UserCreateData:
+      type: object
+      required:
+        - "username"
+        - "password"
+        - "upiid"
+        - "role"
+        - "name"
+        - "email"
+        - "phone"
+        - "payIn"
+        - "payOut"
+        - "payInLimit"
+        - "payOutLimit"
+        - "balance"
+        - "payInCommission"
+        - "payOutCommission"
+      properties:
+        username:
+          type: string
+          description: "Username"
+          example: "john"
+        password:
+          type: string
+          description: "Password"
+          example: "password"
+        upiid:
+          type: string
+          description: "UPI ID"
+          example: "john@upi"
+        role:
+          type: string
+          description: "Role"
+          enum:
+            - "admin"
+            - "user"
+          example: "user"
+        name:
+          type: string
+          description: "Name"
+          example: "John Doe"
+        email:
+          type: string
+          description: "Email"
+          example: "john@example.com"
+        phone:
+          type: string
+          description: "Phone"
+          example: "9876543210"
+        payIn:
+          type: boolean
+          description: "Whether user allowed for Pay In"
+          example: true
+        payOut:
+          type: boolean
+          description: "Whether user allowed for Pay Out"
+          example: true
+        payInLimit:
+          type: number
+          description: "Pay In limit"
+          example: 10000
+        payOutLimit:
+          type: number
+          description: "Pay Out limit"
+          example: 10000
+    UserUpdateData:
+      type: object
+      properties:
+        upiid:
+          type: string
+          description: "UPI ID"
+          example: "john@upi"
+        role:
+          type: string
+          description: "Role"
+          enum:
+            - "admin"
+            - "user"
+          example: "user"
+        status:
+          type: boolean
+          description: "Status"
+          example: true
+    OrderResponseData:
+      type: object
+      required:
+        - "refID"
+        - "type"
+        - "customerName"
+        - "customerIp"
+        - "customerMobile"
+        - "customerUPIID"
+        - "merchantOrderID"
+        - "amount"
+        - "mode"
+        - "paymentStatus"
+        - "validatorUPIID"
+        - "createdAt"
+        - "updatedAt"
+      properties:
+        refID:
+          type: string
+          description: "Reference ID"
+          example: "f8cd2375-98d0-479f-9e3c-b4f2e0de14ed"
+        type:
+          type: string
+          description: "Type"
+          enum:
+            - "payin"
+            - "payout"
+          example: "payin"
+        customerName:
+          type: string
+          description: "Customer name"
+          example: "John Doe"
+        customerIp:
+          type: string
+          description: "Customer IP"
+          example: "10.2.2.5"
+        customerMobile:
+          type: string
+          description: "Customer mobile"
+          example: "9876543210"
+        customerUPIID:
+          type: string
+          description: "Customer UPI ID"
+          example: "john@upi"
+        merchantOrderID:
+          type: string
+          description: "Merchant order ID"
+          example: "123456789"
+        amount:
+          type: number
+          description: "Amount"
+          example: 100
+        mode:
+          type: string
+          description: "Mode"
+          enum:
+            - "upi"
+            - "paytm"
+            - "phonepe"
+          example: "upi"
+        paymentStatus:
+          type: string
+          description: "Payment status"
+          enum:
+            - "pending"
+            - "approved"
+            - "expired"
+          example: "pending"
+        validatorUPIID:
+          type: string
+          description: "Validator UPI ID"
+          example: "john@upi"
+        createdAt:
+          type: string
+          description: "Created at"
+          example: "2021-05-01T00:00:00.000Z"
+        updatedAt:
+          type: string
+          description: "Updated at"
+          example: "2021-05-01T00:00:00.000Z"
+    OrderStatusResponse:
+      type: object
+      required:
+        - "merchantOrderID"
+        - "type"
+        - "refID"
+        - "paymentStatus"
+        - "CreatedAt"
+        - "updatedAt"
+      properties:
+        merchantOrderID:
+          type: string
+          description: "Merchant order ID"
+          example: "123456789"
+        refID:
+          type: string
+          description: "Reference ID"
+          example: "f8cd2375-98d0-479f-9e3c-b4f2e0de14ed"
+        type:
+          type: string
+          description: "Type"
+          enum:
+            - "payin"
+            - "payout"
+          example: "payin"
+        paymentStatus:
+          type: string
+          description: "Payment status"
+          enum:
+            - "pending"
+            - "approved"
+            - "expired"
+          example: "pending"
+        createdAt:
+          type: string
+          description: "Created at"
+          example: "2021-05-01T00:00:00.000Z"
+        updatedAt:
+          type: string
+          description: "Updated at"
+          example: "2021-05-01T00:00:00.000Z"
+    OrderCreateResponse:
+      type: object
+      required:
+        - "refID"
+      properties:
+        refID:
+          type: string
+          description: "Order Request reference ID"
+          example: "f8cd2375-98d0-479f-9e3c-b4f2e0de14ed"
+        redirectURL:
+          type: string
+          description: "Redirect URL to complete the payment"
+          example: "https://localhost:3000/pay?refID=f8cd2375-98d0-479f-9e3c-b4f2e0de14ed"
+    OrderCreateData:
+      type: object
+      required:
+        - "customerName"
+        - "customerIp"
+        - "customerMobile"
+        - "customerUPIID"
+        - "merchantOrderID"
+        - "amount"
+        - "mode"
+        - "type"
+      properties:
+        customerName:
+          type: string
+          description: "Customer name"
+          example: "John Doe"
+        customerIp:
+          type: string
+          description: "Customer IP"
+          example: "192.168.1.120"
+        customerMobile:
+          type: string
+          description: "Customer mobile"
+          example: "9999999999"
+        customerUPIID:
+          type: string
+          description: "Customer UPI ID"
+          example: "john@upi"
+        merchantOrderID:
+          type: string
+          description: "Merchant order ID"
+          example: "f8cd2375-98d0-479f-9e3c-b4f2e0de14ed"
+        amount:
+          type: number
+          description: "Amount"
+          example: 500
+        mode:
+          type: string
+          description: "Mode"
+          enum:
+            - "UPI"
+            - "Paytm"
+            - "PhonePe"
+          example: "UPI"
+        type:
+          type: string
+          description: "Type"
+          enum:
+            - "payin"
+            - "payout"
+          example: "payin"
+    OrderApproveData:
+      type: object
+      required:
+        - transactionID
+      properties:
+        transactionID:
+          type: string
+          description: "Transaction ID"
+          example: "f8cd2375-98d0-479f-9e3c-b4f2e0de14ed"
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: "Success"
+        status:
+          type: integer
+          description: "Status code"
+        message:
+          type: string
+          description: "Message"
+        debug:
+          type: object
+          description: "Debug info"
+  securitySchemes:
+    jsonwebtoken:
+      type: apiKey
+      name: auth
+      in: cookie

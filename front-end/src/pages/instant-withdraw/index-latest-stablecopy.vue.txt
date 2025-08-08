@@ -1,0 +1,769 @@
+<template>
+
+
+  <section v-if="isCustomerUPIID" @contextmenu.prevent
+    class="h-full w-full flex flex-col bg-gray-50 justify-center items-center px-4 sm:px-0">
+
+
+    <div class="success-message fixed z-50 text-white rounded-lg p-2 bg-green-500" v-if="isVisible">
+      <div class="flex items-center">
+        <span class="icon mr-1">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+            stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+          </svg>
+        </span>
+        <span class="text">{{ message }}</span>
+      </div>
+    </div>
+
+
+    <div class="error-message fixed z-50 text-white rounded-lg p-2 bg-yellow-500" v-if="alertVisible">
+      <div class="flex items-center">
+        <span class="icon mr-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle"
+            viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
+            <path
+              d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0" />
+          </svg>
+        </span>
+        <span class="text">{{ message }}</span>
+      </div>
+    </div>
+
+
+    <base-dialog :show="!!error" title="An error occurred!" @close="closeTheDialogBox">
+      <p>{{ error }}</p>
+    </base-dialog>
+    <div class="w-full max-w-md bg-blue-600 text-white rounded-xl shadow-lg p-6">
+      <!-- Header -->
+      <div class="text-center mb-6">
+        <h1 class="text-lg font-semibold">Processing Your Withdrawal</h1>
+        <p class="text-sm opacity-80">Please wait while we process your payment in Minutes <vue-countdown
+            class="text-base md:text-lg font-bold text-white tracking-wider" :time="countDownLimit"
+            @start="countDownStarted" @progress="onCountdownProgress" @end="countDownEnd" v-slot="{ minutes, seconds }">
+            {{ minutes }}:{{ seconds }}
+          </vue-countdown></p>
+      </div>
+
+
+
+      <!-- Circular Progress Bar -->
+      <div class="relative flex justify-center items-center mb-6">
+        <svg class="w-32 h-32 progress-circle" viewBox="0 0 36 36">
+          <!-- Background Circle -->
+          <circle cx="18" cy="18" r="15.915" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="2.5"></circle>
+
+          <!-- Dynamic Progress Circle -->
+          <circle cx="18" cy="18" r="15.915" fill="none" stroke="white" stroke-width="2.5" stroke-dasharray="100"
+            :stroke-dashoffset="calculateProgress()"></circle>
+        </svg>
+
+        <!-- Slider to Control Progress -->
+
+        <div class="absolute text-center">
+          <p class="text-3xl font-bold"> {{ completedPercentage.toFixed(0) }} %</p>
+          <p class="text-sm">Completed</p>
+        </div>
+      </div>
+
+
+
+
+
+      <!-- Amount Details -->
+      <div class="bg-white text-gray-800 rounded-lg p-4 mb-6">
+        <div class="grid grid-cols-3 text-center">
+          <div>
+            <p class="text-sm text-gray-500">Requested</p>
+            <p class="text-lg font-bold">₹{{ amount }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Paid</p>
+            <p class="text-lg font-bold text-green-500">₹{{ paid }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Balance</p>
+            <p class="text-lg font-bold text-red-500">₹{{ balance }}</p>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- Footer Message -->
+      <div class="mt-6 text-center text-sm opacity-80">
+        <p>Your withdrawal is being processed in batches. Please confirm once it reflects in your bank account. Your
+          wallet will be reactivated shortly.</p>
+      </div>
+
+
+      <div class="bg-white text-gray-800 rounded-lg p-4 mt-10">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Batch Transactions</h2>
+
+        <div class="space-y-4">
+          <!-- Batch 1 -->
+
+          <div class="flex justify-center items-center" v-if="pendingList.length == 0">
+            <p class="text-xs text-gray-500 mb-2">Instant credit will appear here.
+              confirm once you receive in bank!
+            </p>
+          </div>
+          <div class="flex justify-between items-center border rounded-lg p-4 bg-gray-50"
+            v-for="(item, index) in pendingList" :key="index">
+            <!-- Left Side -->
+            <div>
+              <p class="text-lg font-bold text-gray-800">₹{{ item.amount }}</p>
+              <p class="text-xs text-gray-500">UTR: {{ item.utr_no }}</p>
+            </div>
+            <!-- Right Side -->
+            <div class="text-right">
+              <p class="text-xs text-gray-500 mb-2">{{ formatDate(item.system_confirmed_at) }}</p>
+              <a v-if="item.confirmed_by_customer_at == null" @click.stop="iConfirmPayment(item)"
+                class="px-3 py-1 text-xs text-white bg-green-600 rounded-md hover:bg-green-700 transition">
+                I Confirm
+              </a>
+            </div>
+          </div>
+
+          <!-- Batch 4 -->
+          <!-- <div class="flex justify-between items-center border rounded-lg p-4 bg-gray-50">
+            <div>
+              <p class="text-lg font-bold text-gray-800">₹10.00</p>
+              <p class="text-xs text-gray-500">UTR: 567890123456</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-gray-500 mb-2">Pending</p>
+              <button class="px-3 py-1 text-xs text-white bg-gray-400 rounded-md cursor-not-allowed">
+                Pending
+              </button>
+            </div>
+          </div> -->
+        </div>
+      </div>
+    </div>
+
+    <div class="h-full flex justify-center items-center" v-if="isLoading">
+      <base-page-spinner-new type="spin" class-list="h-20"></base-page-spinner-new>
+    </div>
+
+
+  </section>
+
+
+  <section v-else>
+    <div v-if="orderData"
+      class="w-full max-w-lg md:max-w-4xl bg-white rounded-lg shadow-lg flex flex-col md:flex-row overflow-hidden fade-in-card">
+      <!-- Left Section -->
+      <div class="flex-1 p-6">
+
+        <h2 class="text-gray-900 text-lg font-semibold">
+          Instant Payout Request from {{ convertToUpperCase(orderData.vendor) }}
+        </h2>
+
+        <div class="mt-6">
+          <p class="text-gray-600 text-sm font-medium">PAYOUT MODE</p>
+          <p class="text-gray-800 text-lg font-bold">UPI ID</p>
+        </div>
+
+        <div class="mt-4">
+          <p class="text-gray-600 text-sm font-medium">AMOUNT PAYABLE</p>
+          <p class="text-gray-800 text-xl font-bold">₹{{ orderData.amount }}</p>
+        </div>
+      </div>
+
+      <!-- Right Section -->
+      <div class="bg-blue-50 flex flex-col items-center justify-center p-6 md:w-96">
+        <img src="https://via.placeholder.com/80" alt="Logo" class="h-16 w-16 mb-4">
+        <h3 class="text-gray-800 text-lg font-bold text-center"> {{ convertToUpperCase(orderData.vendor) }} </h3>
+        <p class="text-gray-600 text-sm mb-6 text-center">Total Amount: INR {{ orderData.amount }}</p>
+
+        <form class="w-full" @submit.prevent="submitForm">
+          <label for="upiId" class="block text-gray-600 text-sm font-medium">Enter your UPI ID</label>
+
+          <input type="text" id="formCustomerUpiId" v-model.trim="formCustomerUpiId.val"
+            @blur="clearValidity('formCustomerUpiId')" placeholder="example@upi"
+            class="w-full mt-2 px-4 py-3 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required>
+
+          <p v-if="!formIsValid" class="text-xs text-red-600">
+            {{ formCustomerUpiId.msg }}
+          </p>
+          <button type="submit"
+            class="w-full mt-4 px-4 py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition">
+            Proceed to Payout
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</template>
+
+<script>
+import io from "socket.io-client";
+import http from "../../http-common.js";
+import VueCountdown from "@chenfengyuan/vue-countdown";
+import moment from 'moment-timezone';
+
+export default {
+  name: "pay",
+  props: ["id"],
+  components: {
+    VueCountdown,
+  },
+  data() {
+    return {
+      timezone: process.env.VUE_APP_TIMEZONE,
+      instantPayoutExpiryTime: null,
+      balanceProgress: 99.99,
+      completedPercentage: 0.0,
+      formIsValid: false,
+      formCustomerUpiId: {
+        val: "",
+        isValid: true,
+        msg: "",
+      },
+      isCustomerUPIID: false,
+      isRedirectionSet: false,
+      isTimeoutReached: false,
+      total: 0.0,
+      paid: 0.0,
+      balance: 0.0,
+      pendingList: [],
+      orderData: null,
+      countDownLimit: 1000 * 60 * 15,
+      //checkingTimerLimit: 5000,
+      checkingTimerLimit: 1000 * 60 * 1, // need to keep this as 10 1 for testing
+      isLoading: true,
+      error: false,
+      closeTheDialogBox: true,
+      showForm: false,
+      isVisible: false,
+      alertVisible: false,
+      message: "",
+      intervalId: null,
+      isCountingDown: false,
+      amount: 0.0,
+      isCompleted: false,
+    };
+  },
+  watch: {
+
+  },
+  computed: {},
+  created() {
+
+    this.socket = io(process.env.VUE_APP_SOCKET_URL, {
+      path: "/wizpay-socket-path",
+    });
+    // Handle events
+    this.socket.on("connect", () => {
+      console.log("Connected to server to serve!!!");
+      this.loadPayOutOrder();
+    });
+
+    this.socket.on("disconnect", () => {
+      //this.loadPayOutOrder();
+      this.unLoadSocketConnection();
+    });
+
+    // Listen for user count updates
+    this.socket.on("userCountUpdate", (count) => {
+      console.log(`Current users listening to channel 'abc': ${count}`);
+    });
+
+    //this.markAsWaitingForPayment();
+    this.loadPayOutOrder();
+    //this.startTimerForReAssigning();
+
+
+  },
+  methods: {
+    startTimerForReAssigning() {
+      // Set a timeout to trigger the event after 10 minutes (600000 ms)
+      setTimeout(() => {
+        this.isTimeoutReached = true;
+        // Event triggered
+        this.findStatus();
+      }, this.checkingTimerLimit); // 10 minutes in milliseconds
+    },
+    //  having a  doubt why this method being used...
+    async findStatus() {
+      let url = `/orders/${this.id}/check-instant-payout-status`;
+      const data = { apiType: "payment" };
+      try {
+        const response = await http.get(url, { params: data });
+        console.log(response.data);
+      } catch (e) {
+        console.log(e);
+      }
+    },
+
+
+    async loadPayOutOrder() {
+      let url = `/orders/${this.id}/instant-payout`;
+      try {
+        const response = await http.get(url);
+
+        if (response.status == 200) {
+
+          let timeZoneTemp = process.env.VUE_APP_TIMEZONE;
+          if (response.data.data.instant_payout_expiry_at != null) {
+            this.instantPayoutExpiryTime = moment.tz(response.data.data.instant_payout_expiry_at, timeZoneTemp).valueOf();
+            this.reCalculateCountDownTime();
+          }
+          if (response.data.data.customerUPIID == undefined || response.data.data.customerUPIID == '') {
+            this.customerUPIID = false;
+          } else {
+
+            this.isCustomerUPIID = true;
+            this.markAsWaitingForPayment();
+            this.waitingForATimerExtension();
+            this.startTimerForReAssigning();
+          }
+
+
+          if (response.data.redirect) {
+            this.orderData = response.data.data;
+            this.message = response.data.message;
+            this.isCompleted = true;
+            this.showMessage();
+            this.redirectToCreator();
+          } else {
+            this.orderData = response.data.data;
+            this.amount = this.orderData.amount;
+          }
+        } else {
+
+          if (response.data.customerUPIID == undefined || response.data.customerUPIID == '') {
+            this.customerUPIID = false;
+          }
+
+          this.orderData = response.data.data;
+          this.message = response.data.message;
+          this.isCompleted = true;
+          this.showMessage();
+          this.redirectToCreator();
+        }
+      } catch (e) {
+        console.log(e);
+      }
+
+      this.refreshPaymentStatus();
+      setInterval(() => {
+        this.refreshPaymentStatus();
+      }, 1000 * 10); // 30000 milliseconds = 30 seconds
+    },
+
+
+    waitingForATimerExtension() {
+      this.isLoading = false;
+      this.showForm = true;
+      const room = `instant-withdraw-extension-${this.id}`;
+      this.socket.emit("joinChannel", room); // Emit join event
+      this.socket.on(room, (data) => {
+
+        this.message = 'We are currently experiencing a high volume of payout requests. \n You may experience a slight delay in receiving your payment';
+        this.showAlertMessage();
+
+        if (data.instant_payout_expiry_at != null && data.is_payout_time_extended != null) {
+          this.instantPayoutExpiryTime = moment.tz(data.instant_payout_expiry_at, this.timezone).valueOf();
+          this.reCalculateCountDownTime();
+        } else {
+          console.log("else block!!1");
+        }
+      });
+    },
+
+    markAsWaitingForPayment() {
+      this.isLoading = false;
+      this.showForm = true;
+      const room = `instant-withdraw-${this.id}`;
+      this.socket.emit("joinChannel", room); // Emit join event
+      this.socket.on(room, (data) => {
+        console.log(data);
+        let item = data;
+        const uuidExists = this.pendingList.some(existingItem => existingItem.uuid === item.uuid);
+        if (!uuidExists) {
+          this.message = `Congratulations! your account is credited with Rs.${item.amount}`;
+          this.showMessage();
+          this.pendingList.push(item);
+        } else {
+          console.log("Item with this UUID already exists in pendingList.");
+        }
+
+        this.refreshPaymentStatus();
+      });
+    },
+
+
+
+
+    // to be checked refresh payment status...
+
+    async refreshPaymentStatus() {
+      let url = `/orders/${this.id}/instant-payout-batches`;
+      try {
+        const response = await http.get(url);
+        if (response.status == 200) {
+
+          if (response.data.redirect) {
+            this.redirectToCreator();
+          }
+          this.pendingList = response.data.data.batchItems;
+          this.amount = response.data.data.total;
+          this.paid = response.data.data.paid;
+          this.balance = response.data.data.balance;
+        }
+      } catch (e) {
+        console.log(e);
+      }
+    },
+
+
+
+
+
+
+
+
+    //  formatted & error free  methods
+
+
+
+    // clearing the validity of the input // need to check do i need to comment the valid & status to activate or not from comments
+    clearValidity(input) {
+      console.log(input);
+      //this[input].isValid = true;
+      //this[input].msg = "";
+    },
+
+    // on count down ends.. // need to confirm whether this method has a valid context...
+    async countDownEnd() {
+      if (this.socket) {
+        this.socket.disconnect();
+      }
+    },
+
+
+    // submit form method used to update the user upi id at the beginning of the process
+
+    async submitForm() {
+      this.validateForm();
+      if (!this.formIsValid) {
+        return;
+      }
+      this.isLoading = true;
+      try {
+        const response = await http.post(`/orders/${this.id}/update-instant-payout`, {
+          customerUPIID: this.formCustomerUpiId.val,
+        });
+
+        this.isLoading = false;
+        if (response.status == 200) {
+          this.loadPayOutOrder();
+        } else {
+          console.log("error!!!");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    },
+
+    // validate form this is used when user is about to enter their upi id method used to save the upi id before the order is being processed with system..
+
+    validateForm() {
+      this.formIsValid = true;
+
+      if (this.formCustomerUpiId.val === '') {
+        this.formCustomerUpiId.isValid = false;
+        this.formCustomerUpiId.msg = 'You must enter UPI ID.';
+        this.formIsValid = false;
+      } else {
+        const isValidUpiId = /^[\w.-]+@[\w.-]+$/.test(this.formCustomerUpiId.val);
+
+        if (!isValidUpiId) {
+          this.formCustomerUpiId.isValid = false;
+          this.formCustomerUpiId.msg = "Please enter a valid UPI ID.";
+          this.formIsValid = false;
+        }
+      }
+    },
+
+    // on count down progress need to check whether this method has a valid context or not..
+    onCountdownProgress(event) {
+      if (event.minutes == 0 && event.seconds >= 30) {
+        // this.showTransactionBar = true;
+      }
+    },
+
+    // unloading the socket connection and exit the instant payout
+    async unLoadSocketConnection() {
+      let url = `/orders/${this.id}/exit-instant-payout`;
+      const data = { apiType: "payment" };
+      try {
+        const response = await http.get(url, { params: data });
+        console.log(response.data);
+      } catch (e) {
+        console.log(e);
+      }
+    },
+
+
+    // convert to uppercase
+    convertToUpperCase(value) {
+      return value.toUpperCase();
+    },
+
+    // re calculate the count down time
+    reCalculateCountDownTime() {
+      const now = moment.tz(this.timezone).valueOf();
+      this.countDownLimit = this.instantPayoutExpiryTime - now;
+      if (this.countDownLimit < 0) {
+        this.countDownLimit = 0;
+      }
+    },
+
+
+    // redirect to creator website
+    redirectToCreator() {
+      if (this.isRedirectionSet === false) {
+        this.isRedirectionSet = true;
+        setInterval(() => {
+          window.location.href = this.orderData.returnUrl;
+        }, 1000 * 15);
+      }
+
+    },
+
+    // i confirm method.
+    async iConfirmPayment(item) {
+      this.isLoading = true;
+      let now = new Date().toISOString();
+      let url = `/orders/${this.id}/confirm-batch`;
+      try {
+        let body = { uuid: item.uuid };
+        const response = await http.post(url, body);
+        console.log(response.data);
+        console.log(response);
+        if (response.status == 200) {
+          this.isLoading = false;
+          this.message = response.data.message;
+          item.confirmed_by_customer_at = now;
+          this.showMessage();
+        } else if (response.status == 206) {
+          this.isLoading = false;
+          this.message = response.data.message;
+          item.confirmed_by_customer_at = now;
+          this.showMessage();
+        } else if (response.status == 204) {
+          this.isLoading = false;
+          this.$swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: response.data.message,
+          }).then((result) => {
+            console.log(result);
+            console.log('error');
+          });
+
+        } else {
+          //TODO: to remove this console log
+          console.log(response.data);
+          // error message
+        }
+      } catch (e) {
+        this.isLoading = false;
+        //TODO: to remove this console log and check when the error occurs
+        console.log(e);
+      }
+    },
+
+    //  for format Date to display
+
+    formatDate(inputDate) {
+      const x = inputDate.replace("T", " ");
+      const y = x.replace(".000Z", "");
+      const date = new Date(y);
+      const day = date.getDate();
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const seconds = date.getSeconds();
+      const amPm = hours >= 12 ? "pm" : "am";
+      const formattedDate = `${day}-${month}-${year} ${hours %
+        12}:${minutes}:${seconds} ${amPm}`;
+      return formattedDate;
+    },
+
+    // for alerts
+    showAlertMessage() {
+      this.alertVisible = true;
+      setTimeout(() => {
+        this.alertVisible = false;
+      }, 10000);
+    },
+
+    // for messages
+    showMessage() {
+      this.isVisible = true;
+      setTimeout(() => {
+        this.isVisible = false;
+      }, 3000);
+    },
+
+    // for calculating the progress
+    calculateProgress() {
+      let percentage = 0.0;
+      if (this.paid == 0) {
+        this.balanceProgress = 99.99;
+        this.completedPercentage = 0;
+      } else {
+        percentage = Math.floor((this.paid / this.amount) * 100);
+      }
+      this.completedPercentage = percentage;
+      this.balanceProgress = 100 - this.completedPercentage;
+      return this.balanceProgress;
+    },
+
+  },
+  beforeUnmount() {
+    if (this.socket) {
+      this.socket.disconnect();
+    }
+    clearInterval(this.intervalId);
+  },
+
+
+  // count down start method..
+  countDownStarted() {
+    this.intervalId = setInterval(() => { }, 15000);
+  },
+};
+</script>
+
+
+<style>
+.progress-circle {
+  transform: rotate(-90deg);
+  /* Rotate to start progress from the top */
+  transform-origin: center;
+  width: 128px;
+  height: 128px;
+}
+
+/* Style for the Slider */
+.progress-slider {
+  margin-top: 20px;
+  width: 100%;
+}
+
+/* Keyframes for the progress animation */
+@keyframes fillProgress {
+  0% {
+    stroke-dashoffset: 100;
+  }
+
+  100% {
+    stroke-dashoffset: var(--progress);
+  }
+}
+
+.progress-circle {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.progress-animation {
+  animation: fillProgress 1.5s ease-out forwards;
+}
+</style>
+<style>
+/* Tailwind custom keyframes for fade and slide */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-card {
+  animation: fadeIn 0.5s ease-out;
+}
+</style>
+
+<style lang="scss" scoped>
+@responsive {
+  .w-400 {
+    width: 400px;
+  }
+
+  .w-100-per {
+    width: 100%;
+  }
+}
+
+.slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.slide-right-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-right-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.slide-right-enter-to,
+.slide-right-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.bg-timer {
+  background-color: #D76565;
+}
+
+.success-message {
+  background-color: #28a745;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.text-xxs {
+  font-size: 10px;
+}
+
+.text-red-1 {
+  color: #D76565;
+}
+
+.ht-34 {
+  height: 34px;
+}
+</style>
