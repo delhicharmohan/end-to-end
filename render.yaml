@@ -10,26 +10,32 @@ services:
         value: production
       - key: PORT
         value: 10000
+      # GCP Cloud SQL Connection Configuration
+      # Using TCP connection for Render (external to GCP)
+      - key: INSTANCE_HOST
+        value: 34.31.105.133
       - key: DB_HOST
-        fromDatabase:
-          name: wizpay-db
-          property: host
+        value: 34.31.105.133
+      - key: DB_PORT
+        value: 3306
       - key: DB_USER
-        fromDatabase:
-          name: wizpay-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: wizpay-db
-          property: password
+        value: rishad
       - key: DB_NAME
-        fromDatabase:
-          name: wizpay-db
-          property: database
+        value: wizpay_staging
+      - key: DB_PASS
+        value: '}9B8dF8i3vb"_65&'
+      # Keep for reference (not used with TCP connection)
+      # - key: INSTANCE_CONNECTION_NAME
+      #   value: best-live-404609:us-central1:wizpay-master
       - key: TIMEZONE
         value: Asia/Kolkata
       - key: ORDER_CREATE_REDIRECT_URL
         value: https://wizpay-frontend.onrender.com
+      # JWT Configuration
+      - key: JWT_SECRET
+        value: test_jwt_secret
+      - key: JWT_EXPIRATION
+        value: 8h
 
   - type: web
     name: wizpay-frontend
@@ -41,7 +47,4 @@ services:
         source: /*
         destination: /index.html
 
-databases:
-  - name: wizpay-db
-    databaseName: wizpay_staging
-    user: wizpay_user
+# No databases section needed - using external GCP Cloud SQL
