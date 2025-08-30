@@ -63,9 +63,7 @@ async function checkAndReAssignInstantPayout(req, res, next) {
       // || 1==1 // for testing only....
     ) {
 
-      let nowCopy = moment().tz(process.env.TIMEZONE);
-
-      const tenMinutesAfter = nowCopy
+      const tenMinutesAfter = moment().tz(process.env.TIMEZONE)
         .add(10, "minutes")
         .format("YYYY-MM-DD HH:mm:ss");
 
@@ -174,10 +172,11 @@ async function checkAndReAssignInstantPayout(req, res, next) {
       );
 
       if (order.validatorUPIID == "") {
+        // Decrement instant_balance by the batch amount and update validator info
         let [orderUpdateToAdmin] = await pool.query(
-          "UPDATE orders SET instant_balance = ?, validatorUsername = ?, paymentStatus = ?, validatorUPIID = ?  where refID = ?",
+          "UPDATE orders SET instant_balance = instant_balance - ?, current_payout_splits = current_payout_splits + 1, validatorUsername = ?, paymentStatus = ?, validatorUPIID = ? WHERE refID = ?",
           [
-            instantBalance,
+            finalAmount,
             validatorDetails.username,
             "pending",
             validatorDetails.upiid,

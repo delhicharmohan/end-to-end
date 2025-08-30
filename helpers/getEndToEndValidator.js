@@ -26,14 +26,21 @@ async function getEndToEndValidator(amount, vendor, customerMobile = '') {
  */
 async function findIdealOrder(vendor, amount, customerMobile = '') {
   const pool = await poolPromise;
-  const now = moment().tz(process.env.TIMEZONE);
+  const timezone = process.env.TIMEZONE || 'Asia/Kolkata';
+  const now = moment().tz(timezone);
   const createdAt = now.format("YYYY-MM-DD HH:mm:ss");
+  
+  // Extended time windows for better matching
   const fifteenMinutesAgo = now
     .subtract(15, "minutes")
     .format("YYYY-MM-DD HH:mm:ss");
 
-  const thirteenMinutesAgo = now
+  const thirtyMinutesAgo = now
     .subtract(30, "minutes")
+    .format("YYYY-MM-DD HH:mm:ss");
+
+  const oneHourAgo = now
+    .subtract(60, "minutes")
     .format("YYYY-MM-DD HH:mm:ss");
 
   const limit = 50;
@@ -44,8 +51,9 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
 
   let isAssignableToNewUser = false;
 
-  console.log(orderUsageIndex);
+  console.log(`Order usage index: ${orderUsageIndex}`);
 
+  // First, try exact amount match with extended time window
   let exactQueryParams = [];
   let exactQuery = ` SELECT * FROM orders WHERE `;
 
@@ -61,7 +69,7 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
       ORDER BY current_payout_splits DESC, id ASC, createdAt ASC
       LIMIT ? OFFSET ?`;
 
-  exactQueryParams.push(thirteenMinutesAgo);
+  exactQueryParams.push(thirtyMinutesAgo); // Extended from 13 minutes to 30 minutes
   exactQueryParams.push(vendor);
   exactQueryParams.push("payout");
   exactQueryParams.push("unassigned");
@@ -71,12 +79,17 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
   exactQueryParams.push(offset);
 
   const [exactOrders] = await pool.query(exactQuery, exactQueryParams);
+  console.log(`Found ${exactOrders.length} exact amount matches for amount: ${amount}`);
 
   for (let order of exactOrders) {
     let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
     let isActiveUser = await isUserActive(order);
+    
+    console.log(`Order ${order.id}: duplicate=${duplicateFound}, active=${isActiveUser}`);
+    
     if (!duplicateFound && isActiveUser) {
       foundOrder = order;
+      console.log(`Selected exact match order: ${order.id}`);
       break;
     }
   }
@@ -91,56 +104,70 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
     isAssignableToNewUser = false;
   }
 
-  while (!foundOrder) {
-    const query = `
-      SELECT * FROM orders
-      WHERE is_instant_payout = ?
-        AND createdAt >= ?
-        AND vendor = ?
-        AND type = ?
-        AND paymentStatus = ?
-        AND instant_balance >= ?
-        AND current_payout_splits <= ?
-      ORDER BY current_payout_splits DESC, id ASC, createdAt ASC
-      LIMIT ? OFFSET ?`;
+  // If no exact match, try flexible amount matching with multiple time windows
+  const timeWindows = [fifteenMinutesAgo, thirtyMinutesAgo, oneHourAgo];
+  
+  for (let timeWindow of timeWindows) {
+    console.log(`Trying flexible matching with time window: ${timeWindow}`);
+    
+    while (!foundOrder) {
+      const query = `
+        SELECT * FROM orders
+        WHERE is_instant_payout = ?
+          AND createdAt >= ?
+          AND vendor = ?
+          AND type = ?
+          AND paymentStatus = ?
+          AND instant_balance >= ?
+          AND current_payout_splits <= ?
+        ORDER BY current_payout_splits DESC, instant_balance ASC, id ASC, createdAt ASC
+        LIMIT ? OFFSET ?`;
 
-    const params = [
-      1, // is_instant_payout
-      fifteenMinutesAgo,
-      vendor,
-      "payout",
-      "unassigned",
-      amount,
-      4, // Max splits
-      limit,
-      offset,
-    ];
+      const params = [
+        1, // is_instant_payout
+        timeWindow,
+        vendor,
+        "payout",
+        "unassigned",
+        amount,
+        4, // Max splits
+        limit,
+        offset,
+      ];
 
-    let [orders] = await pool.query(query, params);
+      let [orders] = await pool.query(query, params);
+      console.log(`Found ${orders.length} flexible matches in time window ${timeWindow}`);
 
-    if (orders.length === 0) break; // Exit if no orders are found
+      if (orders.length === 0) break; // Exit if no orders are found
 
-    for (let order of orders) {
-      // check if the user has reached more than 3 batches if the user is got 3 orders and order not matching will assign to the next user
-      let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
-      let isActiveUser = await isUserActive(order);
+      for (let order of orders) {
+        // check if the user has reached more than 3 batches if the user is got 3 orders and order not matching will assign to the next user
+        let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
+        let isActiveUser = await isUserActive(order);
 
-      if (order.current_payout_splits == 4) {
-        // check for the balance
-        if (isAssignableToNewUser) {
-          continue;
+        console.log(`Order ${order.id}: amount=${order.instant_balance}, splits=${order.current_payout_splits}, duplicate=${duplicateFound}, active=${isActiveUser}`);
+
+        if (order.current_payout_splits == 4) {
+          // check for the balance
+          if (isAssignableToNewUser) {
+            continue;
+          }
+        }
+
+        if (!duplicateFound && isActiveUser) {
+          foundOrder = order;
+          console.log(`Selected flexible match order: ${order.id} with amount: ${order.instant_balance}`);
+          break;
         }
       }
-
-      if (!duplicateFound && isActiveUser) {
-        foundOrder = order;
-        break;
-      }
+      offset += limit; // Increase offset for the next batch
     }
-    offset += limit; // Increase offset for the next batch
+    
+    if (foundOrder) break; // Exit if we found an order
+    offset = 0; // Reset offset for next time window
   }
 
-  console.log(`Found ideal order: ${foundOrder} `);
+  console.log(`Final result - Found ideal order: ${foundOrder ? foundOrder.id : 'null'}`);
   return foundOrder;
 }
 

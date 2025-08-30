@@ -16,6 +16,9 @@ if (hostName === 'api.wizpayy.com') {
   baseURL = protocol + '//34.27.183.239:80/api/v1';
 } else if (hostName == 'zinggale.com') {
   baseURL = protocol + '//zinggale.com/api/v1';
+} else if (hostName.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+  // Handle IP addresses - use port 3000 for local development
+  baseURL = protocol + '//' + hostName + ':3000/api/v1';
 } else {
   baseURL = protocol + '//' + hostName + '/api/v1';
 }

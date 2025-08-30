@@ -26,7 +26,7 @@ async function postAsync(options) {
 async function getStatusInstantPayOut(req, res, next) {
 
   const now = moment().tz(process.env.TIMEZONE);
-  const fifteenMinutesAfter = now.add(15, "minutes").format("YYYY-MM-DD HH:mm:ss");
+  const fifteenMinutesAfter = moment().tz(process.env.TIMEZONE).add(15, "minutes").format("YYYY-MM-DD HH:mm:ss");
 
 
   try {

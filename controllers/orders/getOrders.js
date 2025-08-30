@@ -25,7 +25,7 @@ function buildQuery(fields, vendor) {
   delete fields.first;
   delete fields.page;
 
-  const tz = process.env.TIMEZONE;
+  const tz = process.env.TIMEZONE || 'Asia/Kolkata';
 
   let searchKeyWord = fields.searchKeyWord;
   delete fields.searchKeyWord;
@@ -88,13 +88,9 @@ function buildQuery(fields, vendor) {
   let query;
   let countQuery;
 
-  if (differenceInDays > 7) {
-    query = "SELECT * FROM ( SELECT * FROM orders UNION ALL SELECT * FROM orders_history ) AS combined_orders";
-    countQuery = "SELECT COUNT(*) AS total FROM ( SELECT * FROM orders UNION ALL SELECT * FROM orders_history ) AS combined_orders";
-  } else {
-    query = "SELECT * FROM orders";
-    countQuery = "SELECT COUNT(*) AS total FROM orders";    
-  }
+  // Simplified query - only use orders table for now to avoid UNION issues
+  query = "SELECT * FROM orders";
+  countQuery = "SELECT COUNT(*) AS total FROM orders";
 
   let data = [];
   let isRemoveLastQuery;

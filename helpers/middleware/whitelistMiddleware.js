@@ -8,7 +8,8 @@ const whitelist = [
   "zinggale.com",
   "p2p-instance.de.r.appspot.com",
   "20240328t022808-dot-best-live-404609.uc.r.appspot.com",
-  "::ffff:192.168.100.149"
+  "::ffff:192.168.100.149",
+  "192.168.1.54"
 ];
 
 const whitelistMiddleware = (req, res, next) => {

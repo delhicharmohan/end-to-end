@@ -192,9 +192,16 @@
                         {{ item.payout_type == 'instant' ? 'Waiting for E2E Payment!' : '' }}
                     </div>
 
-                    <div v-if="item.payout_type == 'instant' && item.paymentStatus == 'unassigned'" :class="getClass"
+                    <!-- Only show timer if order has been accessed (has instant_payout_expiry_at set) -->
+                    <div v-if="item.payout_type == 'instant' && item.paymentStatus == 'unassigned' && item.instant_payout_expiry_at" :class="getClass"
                         class="px-4 py-2  mt-2  rounded-full text-white uppercase text-xs">
                         {{ formattedTimeForInstantWaiting }}
+                    </div>
+
+                    <!-- Show "Not Accessed" message for orders without timer -->
+                    <div v-if="item.payout_type == 'instant' && item.paymentStatus == 'unassigned' && !item.instant_payout_expiry_at" :class="getClass"
+                        class="px-4 py-2  mt-2  rounded-full text-white uppercase text-xs">
+                        Customer Not Accessed Yet
                     </div>
 
                     <div v-if="item.is_instant_payout && item.payout_type == 'instant' && (item.instant_balance > 0)">
@@ -312,7 +319,7 @@ export default {
             error: null,
             selectedItem: null,
             isSelected: false,
-            instantTimeLeft: 10 * 60 * 1000,
+            instantTimeLeft: 25 * 60 * 1000, // 25 minutes to match backend logic (15 + 10 extension)
             instantIntervalId: null,
             instantTimeExpired: false,
             serverTimeNow: null,
@@ -431,45 +438,42 @@ export default {
         // from gpt
 
         startCountdownForInstant() {
+            // Only show timer for instant payout orders that are unassigned AND have backend timer set
+            if (this.item.payout_type !== 'instant' || 
+                this.item.paymentStatus !== 'unassigned' || 
+                !this.item.instant_payout_expiry_at) {
+                console.log("Skipping timer - conditions not met:", {
+                    payout_type: this.item.payout_type,
+                    paymentStatus: this.item.paymentStatus,
+                    instant_payout_expiry_at: this.item.instant_payout_expiry_at
+                });
+                return;
+            }
+
             // Get the time zone from the environment variable (e.g., 'Asia/Kolkata')
             const timeZone = process.env.VUE_APP_TIMEZONE;
-            console.log("Time Zone:", timeZone);
 
-            // Parse the createdAt (stored in Asia/Kolkata) directly using the time zone
-            const createdAtMoment = moment.tz(this.createdAt, timeZone);
-            console.log("Created At (in Asia/Kolkata):", createdAtMoment.format("YYYY-MM-DD HH:mm:ss"));
-
-            // Get the UTC timestamp for createdAt (for accurate calculations)
-            const createdAtTime = createdAtMoment.valueOf();
-            console.log("createdAtTime (UTC Timestamp):", createdAtTime);
-
-            // Ensure that instantTimeLeft is in milliseconds (10 minutes)
-            //this.instantTimeLeft = 10 * 60 * 1000; // 10 minutes in milliseconds
-            console.log("Instant Time Left (milliseconds):", this.instantTimeLeft);
-
-            // Calculate the end time in milliseconds (createdAtTime + 10 minutes)
-            const endTime = createdAtTime + this.instantTimeLeft;
-            console.log("End Time (milliseconds):", endTime);
+            // Use the backend timer instead of calculating from createdAt
+            const backendExpiryTime = moment.tz(this.item.instant_payout_expiry_at, timeZone).valueOf();
+            
+            console.log("Using backend timer expiry:", moment.tz(this.item.instant_payout_expiry_at, timeZone).format("YYYY-MM-DD HH:mm:ss"));
 
             // Start the countdown by setting an interval
             this.instantIntervalId = setInterval(() => {
                 // Get the current time in the same time zone (Asia/Kolkata)
-                const now = moment.tz(new Date(), timeZone).valueOf(); // Current time in Asia/Kolkata (converted from UTC)
-                console.log("Now (current time in Asia/Kolkata):", now);
+                const now = moment.tz(new Date(), timeZone).valueOf();
 
-                // Calculate the remaining time
-                const timeLeft = endTime - now;
-                console.log("Remaining Time (milliseconds):", timeLeft);
+                // Calculate the remaining time using backend expiry
+                const timeLeft = Math.max(backendExpiryTime - now, 0);
 
-                // Update instantTimeLeft and ensure it doesn't go negative
-                this.instantTimeLeft = Math.max(timeLeft, 0);
-                console.log("Updated Instant Time Left:", this.instantTimeLeft);
+                // Update instantTimeLeft
+                this.instantTimeLeft = timeLeft;
 
                 // Check if the countdown expired
                 if (this.instantTimeLeft === 0) {
                     this.instantTimeExpired = true; // Countdown expired
                     clearInterval(this.instantIntervalId); // Clear the interval
-                    console.log("Countdown expired");
+                    console.log("Admin dashboard timer expired for order:", this.item.refID);
                 }
             }, 1000); // Update every second
         },

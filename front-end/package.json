@@ -5,7 +5,8 @@
   "scripts": {
     "serve": " vue-cli-service serve",
     "nodeserve": "sudo n 16.4.0 & vue-cli-service serve",
-    "build": "vue-cli-service build --dest ../views",
+    "build": "vue-cli-service build",
+    "build-views": "vue-cli-service build --dest ../views",
     "devbuild": "vue-cli-service build --dest ../views --mode development",
     "lint": "vue-cli-service lint"
   },
@@ -28,6 +29,7 @@
     "moment-timezone": "^0.5.46",
     "pusher-js": "^8.0.2",
     "socket.io-client": "^4.6.1",
+    "sweetalert2": "^11.22.5",
     "vue": "^3.0.4",
     "vue-confetti": "^2.3.0",
     "vue-qrcode-component": "^2.1.1",

@@ -5,7 +5,8 @@ const moment = require("moment-timezone");
 
 async function getOrderUsageIndex(vendor) {
   const pool = await poolPromise;
-  const now = moment().tz(process.env.TIMEZONE);
+  const timezone = process.env.TIMEZONE || 'Asia/Kolkata';
+  const now = moment().tz(timezone);
   const nowTime = now.format("YYYY-MM-DD HH:mm:ss");
 
   const limit = 50;

@@ -16,6 +16,8 @@ function initialize(server, path) {
       origin: [
         "http://localhost:3000",
         "http://localhost:8080",
+        "http://192.168.1.54:3000",
+        "http://192.168.1.54:8080",
         "https://best-live-404609.uc.r.appspot.com",
         "https://zinggale.com",
         "https://api.wizpayy.com",

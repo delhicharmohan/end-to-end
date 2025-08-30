@@ -11,6 +11,8 @@ var app = express();
 var corsOptions = {
   origin: [
     "http://localhost:8080",
+    "http://192.168.1.54:3000",
+    "http://192.168.1.54:8080",
     "https://api.wizpayy.com",
     "http://wizpayy.com",
     "https://zinggale.com",

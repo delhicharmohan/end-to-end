@@ -74,7 +74,7 @@ async function createOrder(req, res, next) {
     const skipRandomValidator = isInstantPayout;
     const now = moment().tz(process.env.TIMEZONE);
     const createdAt = now.format("YYYY-MM-DD HH:mm:ss");
-    const fiveMinutesAgo = now.subtract(5, "minutes").format("YYYY-MM-DD HH:mm:ss");
+    const fiveMinutesAgo = moment().tz(process.env.TIMEZONE).subtract(5, "minutes").format("YYYY-MM-DD HH:mm:ss");
 
     if (isInstantPayout) {
       //return res.status(400).json({ success: false, message: "Invalid customerUPIID" });
@@ -98,12 +98,15 @@ async function createOrder(req, res, next) {
         try {
           customerAsValidator = await getEndToEndValidator(amount, vendor, customerMobile);
           if(customerAsValidator) {
-
+            console.log(`✅ End-to-end validation SUCCESS: Found payout order ${customerAsValidator.id} for amount ${customerAsValidator.instant_balance}`);
             let duplicateInsertQuery = `INSERT INTO instant_payin_logs ('customer_mobile', 'order_id') VALUES (?, ?)`;
             let duplicateInsert = await pool.query(duplicateInsertQuery, [customerMobile, customerAsValidator.id]);
+          } else {
+            console.log(`❌ End-to-end validation FAILED: No suitable payout found for amount ${amount} and vendor ${vendor}`);
           }
         } catch (e) {
           console.log("Could not find a customer for end-to-end validation");
+          console.error("End-to-end validation error:", e);
         }
       }
 
@@ -245,8 +248,9 @@ async function createOrder(req, res, next) {
         return res.status(500).json({ success: false, message: "Error inserting order: No Order was inserted" });
       }
 
-      const query = "UPDATE orders SET current_payout_splits = current_payout_splits + 1 WHERE id = ?";
-      const [updateCustomerAsValidator] = await pool.query(query, [customerAsValidator.id]);
+      // Update both splits counter AND decrement instant_balance
+      const query = "UPDATE orders SET current_payout_splits = current_payout_splits + 1, instant_balance = instant_balance - ? WHERE id = ?";
+      const [updateCustomerAsValidator] = await pool.query(query, [insertedOrder.amount, customerAsValidator.id]);
 
     }
 

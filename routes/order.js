@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const moment = require("moment-timezone");
+const poolPromise = require("../db");
 
 // Set up Multer to handle file uploads
 const storage = multer.memoryStorage();
@@ -87,5 +89,65 @@ router.post("/:refID/refreshToken", refreshToken);
 router.get("/getOrderStatics/:type", checkAuth, getOrderStatics);
 router.get("/getBarChartData/:type", checkAuth, getBarChartData);
 router.get("/getOrderTotalStatics/:type", checkAuth, getOrderTotalStatics);
+
+// Debug endpoint to check available payouts for matching
+router.get("/debug/payouts", async (req, res) => {
+  try {
+    const { vendor, amount } = req.query;
+    const pool = await poolPromise;
+    const now = moment().tz(process.env.TIMEZONE);
+    
+    const thirtyMinutesAgo = now.subtract(30, "minutes").format("YYYY-MM-DD HH:mm:ss");
+    const oneHourAgo = now.subtract(60, "minutes").format("YYYY-MM-DD HH:mm:ss");
+    
+    // Get all unassigned payouts
+    const query = `
+      SELECT 
+        id, 
+        instant_balance, 
+        current_payout_splits, 
+        createdAt, 
+        vendor,
+        paymentStatus,
+        is_instant_payout
+      FROM orders 
+      WHERE is_instant_payout = 1 
+        AND type = 'payout' 
+        AND paymentStatus = 'unassigned'
+        AND vendor = ?
+        AND createdAt >= ?
+      ORDER BY createdAt DESC
+      LIMIT 20
+    `;
+    
+    const [payouts] = await pool.query(query, [vendor, oneHourAgo]);
+    
+    // Get socket channel activity
+    const socketQuery = `
+      SELECT channel, user_count 
+      FROM socket_channels 
+      WHERE channel LIKE 'instant-withdraw-%'
+      ORDER BY user_count DESC
+    `;
+    
+    const [socketChannels] = await pool.query(socketQuery);
+    
+    res.json({
+      success: true,
+      data: {
+        payouts,
+        socketChannels,
+        searchCriteria: {
+          vendor,
+          amount,
+          timeWindow: oneHourAgo
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Debug endpoint error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 module.exports = router;

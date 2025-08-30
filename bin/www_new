@@ -48,11 +48,11 @@ const httpsServer = https.createServer(credentials, app);
  * Listen on provided ports, on all network interfaces.
  */
 
-httpServer.listen(httpPort);
+httpServer.listen(httpPort, '0.0.0.0');
 httpServer.on("error", onError);
 httpServer.on("listening", () => onListening("HTTP", httpPort));
 
-httpsServer.listen(httpsPort);
+httpsServer.listen(httpsPort, '0.0.0.0');
 httpsServer.on("error", onError);
 httpsServer.on("listening", () => onListening("HTTPS", httpsPort));
 

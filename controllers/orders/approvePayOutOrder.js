@@ -4,7 +4,8 @@ const moment = require("moment-timezone");
 const { getIO } = require("../../socket");
 
 async function approvePayOutOrder(req, res, next) {
-  const now = moment().tz(process.env.TIMEZONE);
+  const timezone = process.env.TIMEZONE || 'Asia/Kolkata';
+  const now = moment().tz(timezone);
   const createdAt = now.format("YYYY-MM-DD HH:mm:ss");
   const updatedAt = now.format("YYYY-MM-DD HH:mm:ss");
 

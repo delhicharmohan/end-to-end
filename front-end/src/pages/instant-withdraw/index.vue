@@ -237,7 +237,7 @@ export default {
       orderData: null,
       countDownLimit: 1000 * 60 * 15,
       //checkingTimerLimit: 5000,
-      checkingTimerLimit: 1000 * 60 * 10, // need to keep this as 10 1 for testing
+      checkingTimerLimit: 1000 * 30, // Reduced from 10 minutes to 30 seconds for faster matching
       isLoading: true,
       error: false,
       closeTheDialogBox: true,
@@ -284,12 +284,12 @@ export default {
   },
   methods: {
     startTimerForReAssigning() {
-      // Set a timeout to trigger the event after 10 minutes (600000 ms)
+      // Set a timeout to trigger the event after 30 seconds for faster matching
       setTimeout(() => {
         this.isTimeoutReached = true;
         // Event triggered
         this.findStatus();
-      }, this.checkingTimerLimit); // 10 minutes in milliseconds
+      }, this.checkingTimerLimit); // 30 seconds for faster matching
     },
     //  having a  doubt why this method being used...
     async findStatus() {
@@ -298,8 +298,10 @@ export default {
       try {
         const response = await http.get(url, { params: data });
         console.log(response.data);
-        this.startTimerForReAssigning();
-
+        // Only restart timer if not already completed
+        if (!this.isCompleted) {
+          this.startTimerForReAssigning();
+        }
       } catch (e) {
         console.log(e);
       }
@@ -325,6 +327,10 @@ export default {
             this.isCustomerUPIID = true;
             this.markAsWaitingForPayment();
             this.waitingForATimerExtension();
+            // Immediate matching attempt for faster processing
+            setTimeout(() => {
+              this.findStatus();
+            }, 2000); // Try matching after 2 seconds
             this.startTimerForReAssigning();
           }
 
@@ -358,7 +364,7 @@ export default {
       this.refreshPaymentStatus();
       setInterval(() => {
         this.refreshPaymentStatus();
-      }, 1000 * 10); // 30000 milliseconds = 30 seconds
+      }, 1000 * 3); // Reduced from 10 seconds to 3 seconds for faster updates
     },
 
 

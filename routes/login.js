@@ -86,7 +86,12 @@ router.post("/", async (req, res) => {
       expiresIn: process.env.JWT_EXPIRATION,
     });
 
-    res.cookie("auth", token);
+    res.cookie("auth", token, {
+      httpOnly: false,
+      secure: false,
+      sameSite: 'lax',
+      domain: undefined  // Allow cookie to work with IP addresses
+    });
     logger.info(`User '${username}' logged in successfully.`);
     return res.json({
       status: true,
