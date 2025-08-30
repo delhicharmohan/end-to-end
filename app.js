@@ -11,12 +11,14 @@ var app = express();
 var corsOptions = {
   origin: [
     "http://localhost:8080",
+    "http://localhost:3000",
     "http://192.168.1.54:3000",
     "http://192.168.1.54:8080",
     "https://api.wizpayy.com",
     "http://wizpayy.com",
     "https://zinggale.com",
     "https://p2p-instance.de.r.appspot.com",
+    "https://wizpay-fullstack.onrender.com",
     "chrome-extension://lcdeifkjnmaenbbdeimjoihapmhecdke",
     "https://20240328t022808-dot-best-live-404609.uc.r.appspot.com"
   ],
