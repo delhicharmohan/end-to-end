@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: wizpay-fullstack
+    name: wizpay-backend
     env: node
     plan: starter
     buildCommand: npm ci || npm install
@@ -31,9 +31,9 @@ services:
         value: Asia/Kolkata
       # Updated to use same service URL
       - key: ORDER_CREATE_REDIRECT_URL
-        value: https://wizpay-fullstack.onrender.com
+        value: https://wizpay-backend.onrender.com
       - key: WHITELIST_HOSTS
-        value: wizpay-fullstack.onrender.com
+        value: wizpay-backend.onrender.com
       # JWT Configuration
       - key: JWT_SECRET
         value: test_jwt_secret
