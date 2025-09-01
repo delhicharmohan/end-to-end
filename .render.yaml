@@ -3,7 +3,7 @@ services:
     name: wizpay-fullstack
     env: node
     plan: starter
-    buildCommand: npm run render-build
+    buildCommand: npm ci || npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
