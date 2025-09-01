@@ -6,7 +6,7 @@
     "start": "node ./bin/www",
     "dev": "sudo n 18.0.0 & nodemon ./bin/www",
     "build": "./build.sh",
-    "render-build": "npm install && mkdir -p views && cd front-end && npm install --legacy-peer-deps --force && (npm run build-views || npm run build || echo 'Build failed, using existing') && cd .. && ([ -d front-end/dist ] && cp -r front-end/dist/* views/ 2>/dev/null || echo 'Using existing views') && ls -la views/",
+    "render-build": "npm install && mkdir -p views && corepack enable && corepack prepare pnpm@latest --activate && cd front-end && pnpm install --frozen-lockfile=false || pnpm install --no-frozen-lockfile || pnpm install --legacy-peer-deps || pnpm install --shamefully-hoist || echo 'pnpm install encountered issues, continuing' && (pnpm run build-views || pnpm run build || npm run build-views || npm run build || echo 'Frontend build failed, using existing') && cd .. && ([ -d front-end/dist ] && cp -r front-end/dist/* views/ 2>/dev/null || echo 'Using existing views') && ls -la views/",
     "test": "./node_modules/.bin/mocha"
   },
   "dependencies": {
