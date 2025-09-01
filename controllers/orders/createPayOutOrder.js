@@ -153,6 +153,11 @@ async function createPayOutOrder(req, res) {
       data.accountNumber = req.body.accountNumber;
       data.ifsc = req.body.ifsc;
       data.bankName = req.body.bankName;
+      
+      // Set instant_balance for payout orders to enable end-to-end matching
+      data.instant_balance = req.body.amount;
+      data.current_payout_splits = 0;
+      data.is_instant_payout = 1;
     }
 
     const [insertResult] = await pool.query("INSERT INTO orders SET ?", data);
