@@ -3,27 +3,7 @@ services:
     name: wizpay-fullstack
     env: node
     plan: starter
-    buildCommand: |
-      # Install backend dependencies
-      npm install
-      # Ensure views directory exists
-      mkdir -p views
-      # Install frontend dependencies with legacy peer deps and force to resolve conflicts
-      cd front-end
-      echo "Installing frontend dependencies..."
-      npm install --legacy-peer-deps --force || npm install --force || echo "Frontend install failed, continuing with existing build"
-      # Try to build frontend directly to views directory (preferred method)
-      echo "Building frontend directly to views directory..."
-      npm run build-views || npm run build || echo "Frontend build failed, using existing views"
-      cd ..
-      # If build-views didn't work, try copying from dist
-      if [ -d "front-end/dist" ] && [ "$(ls -A front-end/dist 2>/dev/null)" ]; then
-        echo "Copying from dist to views..."
-        cp -r front-end/dist/* views/ 2>/dev/null || echo "Copy from dist failed"
-      fi
-      # Verify views directory has content
-      echo "Final views directory contents:"
-      ls -la views/ || echo "Views directory check failed"
+    buildCommand: npm run render-build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
