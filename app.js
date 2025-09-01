@@ -8,6 +8,9 @@ const mysql = require("mysql2/promise");
 
 var app = express();
 
+// Behind a proxy (Render), trust X-Forwarded-* headers so req.ip is correct
+app.set("trust proxy", true);
+
 var corsOptions = {
   origin: [
     "http://localhost:8080",

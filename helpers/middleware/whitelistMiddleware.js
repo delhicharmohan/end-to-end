@@ -1,5 +1,8 @@
-const whitelist = [
+// Allow configuring whitelist via env var (comma-separated) in addition to defaults
+const defaultWhitelist = [
   "localhost",
+  "127.0.0.1",
+  "::1",
   "best-live-404609.uc.r.appspot.com",
   "api.wizpayy.com",
   "wizpayy.com",
@@ -12,9 +15,16 @@ const whitelist = [
   "192.168.1.54"
 ];
 
+const envWhitelist = (process.env.WHITELIST_HOSTS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const whitelist = Array.from(new Set([...defaultWhitelist, ...envWhitelist]));
+
 const whitelistMiddleware = (req, res, next) => {
-  const clientIp = req.ip; // Get the client's IP address
-  const clientHostname = req.hostname; // Get the client's hostname
+  const clientIp = req.ip; // May be "::ffff:x.x.x.x" with trust proxy
+  const clientHostname = req.hostname;
 
   // Check if the client's IP address or hostname is in the whitelist
   if (!whitelist.includes(clientIp) && !whitelist.includes(clientHostname)) {
