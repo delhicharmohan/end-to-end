@@ -172,16 +172,26 @@ async function checkAndReAssignInstantPayout(req, res, next) {
       );
 
       if (order.validatorUPIID == "") {
-        // Decrement instant_balance by the batch amount and update validator info
-        let [orderUpdateToAdmin] = await pool.query(
-          "UPDATE orders SET instant_balance = instant_balance - ?, current_payout_splits = current_payout_splits + 1, validatorUsername = ?, paymentStatus = ?, validatorUPIID = ? WHERE refID = ?",
-          [
-            finalAmount,
-            validatorDetails.username,
-            "pending",
-            validatorDetails.upiid,
-            order.refID,
-          ]
+        const BalanceUpdater = require('../../helpers/utils/balanceUpdater');
+        
+        const balanceResult = await BalanceUpdater.updateForReassignment(
+          order.id, 
+          finalAmount, 
+          batchData.uuid
+        );
+        
+        if (!balanceResult.success) {
+          logger.error(`Reassignment balance update failed for order ${order.id}: ${balanceResult.message}`);
+          return res.status(400).json({ 
+            success: false, 
+            message: balanceResult.message
+          });
+        }
+        
+        // Update validator info and splits counter
+        await pool.query(
+          "UPDATE orders SET validatorUsername = ?, paymentStatus = ?, validatorUPIID = ?, current_payout_splits = current_payout_splits + 1 WHERE refID = ?",
+          [validatorDetails.username, "pending", validatorDetails.upiid, order.refID]
         );
         //console.log(orderUpdateToAdmin);
 

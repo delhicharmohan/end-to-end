@@ -2,19 +2,15 @@
 
 
   <section v-if="isCustomerUPIID" @contextmenu.prevent
-    class="min-h-screen w-full flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 justify-center items-center px-4 sm:px-6 py-8 relative overflow-hidden">
+    class="min-h-screen w-full flex flex-col bg-blue-50 justify-center items-center px-4 sm:px-6 py-8 relative overflow-hidden">
 
-    <!-- Background decorative elements -->
-    <div class="absolute inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-purple-200/30 rounded-full blur-3xl"></div>
-      <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-200/30 to-pink-200/30 rounded-full blur-3xl"></div>
-    </div>
+    <!-- Decorative elements removed for solid background -->
 
     <!-- Success Toast -->
     <div class="success-message fixed z-50 top-4 right-4 transform transition-all duration-300 ease-out" 
          v-if="isVisible"
          :class="isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'">
-      <div class="flex items-center bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl p-4 shadow-2xl backdrop-blur-sm border border-green-200/20">
+      <div class="flex items-center bg-green-600 text-white rounded-xl p-4 shadow-2xl border border-green-700">
         <span class="icon mr-3">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
             stroke="currentColor" class="w-6 h-6">
@@ -30,7 +26,7 @@
     <div class="alert-message fixed z-50 top-4 right-4 transform transition-all duration-300 ease-out" 
          v-if="alertVisible"
          :class="alertVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'">
-      <div class="flex items-center bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl p-4 shadow-2xl backdrop-blur-sm border border-amber-200/20">
+      <div class="flex items-center bg-orange-600 text-white rounded-xl p-4 shadow-2xl border border-orange-700">
         <span class="icon mr-3">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle"
             viewBox="0 0 16 16">
@@ -48,13 +44,11 @@
       <p>{{ error }}</p>
     </base-dialog>
     <div class="w-full max-w-md relative group">
-      <!-- Glassmorphism Card -->
-      <div class="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-8 text-white relative overflow-hidden">
-        <!-- Card background gradient -->
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-indigo-600/90 to-purple-600/90 rounded-3xl"></div>
+      <!-- Solid Card -->
+      <div class="bg-blue-700 rounded-3xl shadow-2xl p-8 text-white relative overflow-hidden">
         
-        <!-- Subtle pattern overlay -->
-        <div class="absolute inset-0 opacity-10">
+        <!-- Overlays removed -->
+        <div class="hidden">
           <div class="absolute inset-0" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 20px 20px;"></div>
         </div>
         
@@ -62,16 +56,16 @@
         <div class="relative z-10">
           <!-- Header -->
           <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4 backdrop-blur-sm">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.314-.488-1.314-1.314 0-.725.589-1.314 1.314-1.314.725 0 1.314.589 1.314 1.314 0 .725-.589 1.314-1.314 1.314z" />
               </svg>
             </div>
-            <h1 class="text-2xl font-bold mb-2 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">Processing Your Withdrawal</h1>
+            <h1 class="text-2xl font-bold mb-2 text-white">Processing Your Withdrawal</h1>
             <p class="text-blue-100 text-sm leading-relaxed">Please wait while we process your payment in Minutes</p>
             <div class="mt-3">
               <vue-countdown
-                class="text-2xl font-bold text-white tracking-wider bg-white/20 px-4 py-2 rounded-full backdrop-blur-sm"
+                class="text-2xl font-bold text-white tracking-wider bg-blue-600 px-4 py-2 rounded-full"
                 :time="countDownLimit"
                 @start="countDownStarted" 
                 @progress="onCountdownProgress" 
@@ -86,7 +80,7 @@
           <div class="relative flex justify-center items-center mb-8">
             <svg class="w-32 h-32 progress-circle transform transition-transform duration-300 hover:scale-105" viewBox="0 0 36 36">
               <!-- Background Circle -->
-              <circle cx="18" cy="18" r="15.915" fill="none" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2.5"></circle>
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3B82F6" stroke-width="2.5"></circle>
 
               <!-- Dynamic Progress Circle -->
               <circle cx="18" cy="18" r="15.915" fill="none" stroke="white" stroke-width="2.5" stroke-dasharray="100"
@@ -105,7 +99,7 @@
 
 
           <!-- Amount Details -->
-          <div class="bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl p-6 mb-8">
+          <div class="bg-blue-600 border border-blue-500 rounded-2xl p-6 mb-8">
             <div class="grid grid-cols-3 text-center gap-4">
               <div class="text-center">
                 <p class="text-xs text-blue-100 font-medium mb-1">Requested</p>
@@ -135,9 +129,8 @@
 
       <!-- Batch Transactions Section -->
       <div class="w-full max-w-md mt-8">
-        <div class="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl p-6 text-white relative overflow-hidden">
-          <!-- Card background gradient -->
-          <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-white/10 rounded-3xl"></div>
+        <div class="bg-blue-700 border border-blue-600 rounded-3xl shadow-2xl p-6 text-white relative overflow-hidden">
+          <!-- Gradient overlay removed -->
           
           <!-- Content -->
           <div class="relative z-10">
@@ -147,7 +140,7 @@
               <!-- Empty State -->
               <div class="flex justify-center items-center py-8" v-if="pendingList.length == 0">
                 <div class="text-center">
-                  <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
+                  <div class="w-16 h-16 bg-blue-700 rounded-full flex items-center justify-center mx-auto mb-3">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-blue-200">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.314-.488-1.314-1.314 0-.725.589-1.314 1.314-1.314.725 0 1.314.589 1.314 1.314 0 .725-.589 1.314-1.314 1.314z" />
                     </svg>
@@ -157,7 +150,7 @@
               </div>
               
               <!-- Transaction Items -->
-              <div class="bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl p-4 hover:bg-white/30 transition-all duration-300"
+              <div class="bg-blue-600 border border-blue-500 rounded-2xl p-4 hover:bg-blue-500 transition-all duration-300"
                 v-for="(item, index) in pendingList" :key="index">
                 <!-- Left Side -->
                 <div class="flex justify-between items-center">
@@ -169,7 +162,7 @@
                   <div class="text-right">
                     <p class="text-xs text-blue-200 mb-2">{{ formatDate(item.system_confirmed_at) }}</p>
                     <a v-if="item.confirmed_by_customer_at == null" @click.stop="iConfirmPayment(item)"
-                      class="inline-flex items-center px-4 py-2 text-xs text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
+                      class="inline-flex items-center px-4 py-2 text-xs text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                       </svg>
@@ -192,49 +185,44 @@
   </section>
 
 
-  <section v-else class="min-h-screen w-full flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 justify-center items-center px-4 sm:px-6 py-8 relative overflow-hidden">
-    <!-- Background decorative elements -->
-    <div class="absolute inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-200/30 to-purple-200/30 rounded-full blur-3xl"></div>
-      <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-200/30 to-pink-200/30 rounded-full blur-3xl"></div>
-    </div>
+  <section v-else class="min-h-screen w-full flex flex-col bg-blue-50 justify-center items-center px-4 sm:px-6 py-8 relative overflow-hidden">
+    <!-- Decorative gradient blobs removed for solid background -->
 
     <div v-if="orderData" class="w-full max-w-lg md:max-w-4xl relative group">
-      <!-- Glassmorphism Card -->
-      <div class="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
-        <!-- Card background gradient -->
-        <div class="absolute inset-0 bg-gradient-to-br from-white/90 via-white/95 to-white/90 rounded-3xl"></div>
+      <!-- Blue Card (solid) -->
+      <div class="bg-blue-700 rounded-3xl shadow-2xl overflow-hidden">
+        <!-- Solid background; overlay removed -->
         
         <!-- Content -->
         <div class="relative z-10 flex flex-col md:flex-row">
           <!-- Left Section -->
-          <div class="flex-1 p-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl mb-6 shadow-lg">
+          <div class="flex-1 p-8 text-white">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-6 shadow-lg">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" class="w-8 h-8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.314-.488-1.314-1.314 0-.725.589-1.314 1.314-1.314.725 0 1.314.589 1.314 1.314 0 .725-.589 1.314-1.314 1.314z" />
               </svg>
             </div>
 
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">
+            <h2 class="text-2xl font-bold text-white mb-6">
               Instant Payout Request from {{ convertToUpperCase(orderData.vendor) }}
             </h2>
 
             <div class="space-y-6">
-              <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
-                <p class="text-blue-600 text-sm font-semibold uppercase tracking-wide">PAYOUT MODE</p>
-                <p class="text-gray-800 text-lg font-bold">UPI ID</p>
+              <div class="bg-blue-600 rounded-2xl p-4 border border-blue-500">
+                <p class="text-blue-100 text-sm font-semibold uppercase tracking-wide">PAYOUT MODE</p>
+                <p class="text-white text-lg font-bold">UPI ID</p>
               </div>
 
-              <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-100">
-                <p class="text-green-600 text-sm font-semibold uppercase tracking-wide">AMOUNT PAYABLE</p>
-                <p class="text-gray-800 text-2xl font-bold">₹{{ orderData.amount }}</p>
+              <div class="bg-blue-600 rounded-2xl p-4 border border-blue-500">
+                <p class="text-emerald-100 text-sm font-semibold uppercase tracking-wide">AMOUNT PAYABLE</p>
+                <p class="text-white text-2xl font-bold">₹{{ orderData.amount }}</p>
               </div>
             </div>
           </div>
 
           <!-- Right Section -->
-          <div class="bg-gradient-to-br from-blue-500 to-indigo-600 flex flex-col items-center justify-center p-8 md:w-96 text-white">
-            <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-6 backdrop-blur-sm">
+          <div class="bg-blue-800 flex flex-col items-center justify-center p-8 md:w-96 text-white">
+            <div class="w-20 h-20 bg-blue-700 rounded-full flex items-center justify-center mb-6">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.314-.488-1.314-1.314 0-.725.589-1.314 1.314-1.314.725 0 1.314.589 1.314 1.314 0 .725-.589 1.314-1.314 1.314z" />
               </svg>
@@ -246,17 +234,23 @@
             <form class="w-full" @submit.prevent="submitForm">
               <label for="upiId" class="block text-blue-100 text-sm font-medium mb-2">Enter your UPI ID</label>
 
-              <input type="text" id="formCustomerUpiId" v-model.trim="formCustomerUpiId.val"
-                @blur="clearValidity('formCustomerUpiId')" placeholder="example@upi"
-                class="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-white placeholder-blue-200 transition-all duration-300"
-                required>
+              <input
+                id="upiId"
+                type="text"
+                v-model.trim="formCustomerUpiId.val"
+                @blur="clearValidity('formCustomerUpiId')"
+                placeholder="yourname@upi"
+                class="w-full px-4 py-3 bg-blue-700 border border-blue-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 text-white placeholder-blue-200 transition-all duration-300"
+                required
+              >
 
-              <p v-if="!formIsValid" class="text-xs text-red-200 mt-2">
-                {{ formCustomerUpiId.msg }}
-              </p>
+              <p class="text-[11px] text-blue-100/80 mt-2">Ensure your UPI ID is correct (e.g., user@bank).</p>
+              <p v-if="!formIsValid" class="text-xs text-red-200 mt-1">{{ formCustomerUpiId.msg }}</p>
               
-              <button type="submit"
-                class="w-full mt-6 px-6 py-3 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 hover:shadow-lg transform hover:scale-105 transition-all duration-300 shadow-lg">
+              <button
+                type="submit"
+                class="w-full mt-4 px-6 py-3 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 hover:shadow-lg transform hover:scale-105 transition-all duration-300 shadow-lg"
+              >
                 Proceed to Payout
               </button>
             </form>
@@ -621,46 +615,42 @@ export default {
 
     },
 
-    // i confirm method.
+    // i confirm method (direct callback, no modal)
     async iConfirmPayment(item) {
-      this.isLoading = true;
       let now = new Date().toISOString();
       let url = `/orders/${this.id}/confirm-batch`;
       try {
-        let body = { uuid: item.uuid };
+        this.isLoading = true; // show spinner (no overlay)
+        const body = { uuid: item.uuid };
         const response = await http.post(url, body);
         console.log(response.data);
         console.log(response);
-        if (response.status == 200) {
-          this.isLoading = false;
-          this.message = response.data.message;
-          item.confirmed_by_customer_at = now;
-          this.showMessage();
-        } else if (response.status == 206) {
-          this.isLoading = false;
-          this.message = response.data.message;
-          item.confirmed_by_customer_at = now;
-          this.showMessage();
-        } else if (response.status == 204) {
-          this.isLoading = false;
-          this.$swal.fire({
-            icon: 'error',
-            title: 'Oops...',
-            text: response.data.message,
-          }).then((result) => {
-            console.log(result);
-            console.log('error');
-          });
+        this.isLoading = false;
 
+        if (response.status == 200) {
+          if (response.data.redirect && response.data.withdrawalDetails) {
+            localStorage.setItem('withdrawalSuccess', JSON.stringify(response.data.withdrawalDetails));
+            this.$router.push('/instant-withdraw/success');
+          } else {
+            this.message = response.data.message;
+            item.confirmed_by_customer_at = now;
+            this.showMessage();
+          }
+        } else if (response.status == 206) {
+          this.message = response.data.message;
+          item.confirmed_by_customer_at = now;
+          this.showMessage();
         } else {
-          //TODO: to remove this console log
-          //console.log(response.data);
-          // error message
+          // Fallback error toast
+          this.alertVisible = true;
+          this.message = response.data?.message || 'An error occurred while processing your request';
+          setTimeout(() => { this.alertVisible = false; }, 3000);
         }
       } catch (e) {
         this.isLoading = false;
-        //TODO: to remove this console log and check when the error occurs
-        //console.log(e);
+        this.alertVisible = true;
+        this.message = 'Network error. Please try again.';
+        setTimeout(() => { this.alertVisible = false; }, 3000);
       }
     },
 

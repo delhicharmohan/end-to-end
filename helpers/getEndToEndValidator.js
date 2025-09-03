@@ -64,32 +64,32 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
         AND vendor = ?
         AND type = ?
         AND paymentStatus = ?
-        AND instant_balance = ?
+        AND instant_balance >= ?
         AND current_payout_splits <= ?
-      ORDER BY current_payout_splits DESC, id ASC, createdAt ASC
+      ORDER BY current_payout_splits DESC, instant_balance ASC, id ASC, createdAt ASC
       LIMIT ? OFFSET ?`;
 
   exactQueryParams.push(thirtyMinutesAgo); // Extended from 13 minutes to 30 minutes
   exactQueryParams.push(vendor);
   exactQueryParams.push("payout");
   exactQueryParams.push("unassigned");
-  exactQueryParams.push(amount);
+  exactQueryParams.push(amount); // Changed from = to >= to allow partial matches
   exactQueryParams.push(4);
   exactQueryParams.push(limit);
   exactQueryParams.push(offset);
 
   const [exactOrders] = await pool.query(exactQuery, exactQueryParams);
-  console.log(`Found ${exactOrders.length} exact amount matches for amount: ${amount}`);
+  console.log(`Found ${exactOrders.length} suitable matches for amount: ${amount}`);
 
   for (let order of exactOrders) {
     let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
     let isActiveUser = await isUserActive(order);
     
-    console.log(`Order ${order.id}: duplicate=${duplicateFound}, active=${isActiveUser}`);
+    console.log(`Order ${order.id}: instant_balance=${order.instant_balance}, required=${amount}, duplicate=${duplicateFound}, active=${isActiveUser}`);
     
     if (!duplicateFound && isActiveUser) {
       foundOrder = order;
-      console.log(`Selected exact match order: ${order.id}`);
+      console.log(`Selected suitable match order: ${order.id} with balance: ${order.instant_balance}`);
       break;
     }
   }

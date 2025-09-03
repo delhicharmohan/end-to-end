@@ -4,6 +4,7 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import UserAuth from './pages/auth/UserAuth.vue';
 import Pay from './pages/pay/index.vue';
 import InstantWithdraw from './pages/instant-withdraw/index.vue';
+import WithdrawalSuccess from './pages/instant-withdraw/success.vue';
 import CreatePayIn from './pages/manual-order/create-payin.vue';
 import CreatePayOut from './pages/manual-order/create-payout.vue';
 import Deposit from './pages/deposit/index.vue';
@@ -175,6 +176,12 @@ const router = createRouter({
       component: InstantWithdraw,
       layout: 'blank',
       props: route => ({ id: route.params.id || '' })
+    },
+    {
+      path: '/instant-withdraw/success',
+      name: 'Withdrawal Success',
+      component: WithdrawalSuccess,
+      layout: 'blank'
     },
     {
       path: '/pay/:id',

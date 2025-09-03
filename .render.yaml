@@ -3,7 +3,7 @@ services:
     name: wizpay-backend
     env: node
     plan: starter
-    buildCommand: npm ci || npm install && npm run render-build
+    buildCommand: npm run render-build || (npm ci || npm install && npm run render-build)
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -22,8 +22,6 @@ services:
         value: rishad
       - key: DB_NAME
         value: wizpay_staging
-      - key: DB_PASS
-        value: '}9B8dF8i3vb"_65&'
       # Keep for reference (not used with TCP connection)
       # - key: INSTANCE_CONNECTION_NAME
       #   value: best-live-404609:us-central1:wizpay-master

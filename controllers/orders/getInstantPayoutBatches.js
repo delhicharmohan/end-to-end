@@ -4,11 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const { getIO } = require("../../socket");
 const moment = require("moment-timezone");
 
-function generateReceiptId() {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substring(2, 6);
-  return `${randomStr}${timestamp}`.substring(0, 10).toUpperCase();
-}
+// Removed duplicate generateReceiptId function - already exists in other files
 
 async function getInstantPayoutBatches(req, res, next) {
   try {
@@ -51,10 +47,10 @@ async function getInstantPayoutBatches(req, res, next) {
              confirmed_by_customer_at,
              vendor
       FROM instant_payout_batches 
-      WHERE ref_id = ? AND system_confirmed_at IS NOT NULL 
+      WHERE order_id = ? AND system_confirmed_at IS NOT NULL
       ORDER BY id DESC
   `,
-      [payoutOrder.refID]
+      [payoutOrder.id]
     );
 
     
@@ -74,6 +70,8 @@ async function getInstantPayoutBatches(req, res, next) {
       fasterOrder = true;
     }
 
+    logger.info(`📊 Batches for order ${payoutOrder.refID}: ${payoutBatches.length} found`);
+    
     return res.status(200).json({
       message: "list",
       data: {

@@ -6,11 +6,8 @@ const moment = require("moment-timezone");
 const { getIO } = require("../../socket");
 const getEndToEndValidator = require("../../helpers/getEndToEndValidator");
 
-function generateReceiptId() {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substring(2, 6);
-  return `${randomStr}${timestamp}`.substring(0, 10).toUpperCase();
-}
+const generateReceiptId = require('../../helpers/utils/generateReceiptId');
+const BalanceUpdater = require('../../helpers/utils/balanceUpdater');
 
 let lastRandomValues = new Map();
 
@@ -248,9 +245,25 @@ async function createOrder(req, res, next) {
         return res.status(500).json({ success: false, message: "Error inserting order: No Order was inserted" });
       }
 
-      // Update both splits counter AND decrement instant_balance
-      const query = "UPDATE orders SET current_payout_splits = current_payout_splits + 1, instant_balance = instant_balance - ? WHERE id = ?";
-      const [updateCustomerAsValidator] = await pool.query(query, [insertedOrder.amount, customerAsValidator.id]);
+      // Use centralized balance updater for safe balance management
+      const BalanceUpdater = require('../../helpers/utils/balanceUpdater');
+      
+      const balanceResult = await BalanceUpdater.updateForBatchCreation(
+        customerAsValidator.id, 
+        insertedOrder.amount, 
+        batchData.uuid
+      );
+      
+      if (!balanceResult.success) {
+        logger.error(`Balance update failed for payout order ${customerAsValidator.id}: ${balanceResult.message}`);
+        return res.status(400).json({ 
+          success: false, 
+          message: balanceResult.message
+        });
+      }
+      
+      // Update splits counter separately
+      await pool.query("UPDATE orders SET current_payout_splits = current_payout_splits + 1 WHERE id = ?", [customerAsValidator.id]);
 
     }
 

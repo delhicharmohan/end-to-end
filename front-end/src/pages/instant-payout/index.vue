@@ -434,6 +434,9 @@ export default {
     this.socket.on("order-approved-auto", (data) => {
       this.autoOrderApproved(data);
     });
+    this.socket.on("instant-payout-status-update", (data) => {
+      this.handleInstantPayoutStatusUpdate(data);
+    });
   },
   methods: {
     setPage(page) {
@@ -456,6 +459,21 @@ export default {
     },
     autoOrderApproved(data) {
       this.$store.commit("payin/setPaymentStatusAndUtr", data);
+    },
+    handleInstantPayoutStatusUpdate(data) {
+      // Update order status from "unassigned" to "approved" when withdrawal is confirmed
+      this.$store.commit("payin/updateOrderStatus", {
+        refID: data.refID,
+        paymentStatus: data.status,
+        transactionID: data.utr
+      });
+      
+      // Show success toast notification
+      this.baseToast.type = "success";
+      this.baseToast.message = `Order ${data.refID} has been completed successfully!`;
+      setTimeout(() => {
+        this.handleBaseToast();
+      }, 100);
     },
     addOrderToPayOutList(data) {
       if (!this.showSearch && this.page == 1 && data.type == "payout") {

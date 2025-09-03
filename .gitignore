@@ -14,6 +14,8 @@ Thumbs.db
 
 # configuration files
 .env
+.env*
+*.env
 
 # database files
 db.sqlite
@@ -23,9 +25,17 @@ ignore/
 
 # gcloud files
 app.yaml
+gcloud/*.json
+gcloud/**/*.json
 
 # vscode files
 .vscode/
 
 # wiz-pay front-end
 dist/
+
+# build artifacts and caches
+.npm-cache/
+views/js/
+views/css/
+front-end/dist/

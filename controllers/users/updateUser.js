@@ -4,10 +4,8 @@ const bcrypt = require("bcrypt");
 const moment = require("moment-timezone");
 
 const { Storage } = require('@google-cloud/storage');
-const storage = new Storage({
-  keyFilename: 'gcloud/best-live-404609-214f2657ad28.json', // Replace with the path to your Service Account Key
-  projectId: 'best-live-404609', // Replace with your Google Cloud project ID
-});
+// Use Application Default Credentials (ADC). On Render, set GOOGLE_APPLICATION_CREDENTIALS to the Secret File path.
+const storage = new Storage();
 
 async function uploadToGoogleStorage(fileBuffer, fileName, bucketName) {
   const bucket = storage.bucket(bucketName);

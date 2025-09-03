@@ -147,7 +147,17 @@ async function approvePayOutOrder(req, res, next) {
 
     if (isInstantPayout) {
 
-      let [updateOrder] = await pool.query('UPDATE orders SET instant_paid = instant_paid + ?, instant_balance = instant_balance - ? WHERE refID = ?', [instantBalanceAmount, instantBalanceAmount, refID]);
+      const BalanceUpdater = require('../../helpers/utils/balanceUpdater');
+      
+      const balanceResult = await BalanceUpdater.updateForAdminApproval(data.id, instantBalanceAmount);
+      
+      if (!balanceResult.success) {
+        logger.error(`Admin approval balance update failed for order ${data.id}: ${balanceResult.message}`);
+        return res.status(400).json({ 
+          success: false, 
+          message: balanceResult.message
+        });
+      }
       // update if this flag is set
       let [updatedBatch] = await pool.query(
         `UPDATE instant_payout_batches SET utr_no = ?, confirmed_by_admin_at = ?, system_confirmed_at = ?, updated_at = ? WHERE uuid = ?`,

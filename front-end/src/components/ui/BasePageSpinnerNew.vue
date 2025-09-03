@@ -1,15 +1,21 @@
 <template>
-    <div>
-      <div class="spinner-wrapper">
-        <div class="spinner"></div>
-      </div>
-      <div class="overlay"></div>
+  <div>
+    <div class="spinner-wrapper">
+      <div class="spinner"></div>
     </div>
+    <div v-if="showOverlay" class="overlay"></div>
+  </div>
 </template>
 
 <script>
 export default {
-    name: "base-page-spinner-new",
+  name: "base-page-spinner-new",
+  props: {
+    showOverlay: {
+      type: Boolean,
+      default: false,
+    },
+  },
 }
 </script>
 

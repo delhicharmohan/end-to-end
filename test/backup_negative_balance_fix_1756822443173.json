@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-09-02 19:44:03",
+  "negative_balance_orders": [
+    {
+      "id": 200,
+      "refID": "d3ec728e-136d-475e-88b0-c94634b29125",
+      "amount": "3.00",
+      "instant_balance": "-3.00",
+      "instant_paid": "3.00",
+      "current_payout_splits": 1,
+      "calculated_balance": "0.00",
+      "balance_discrepancy": "-3.00"
+    },
+    {
+      "id": 215,
+      "refID": "32799b55-439d-4254-90cd-1aad797b2455",
+      "amount": "3.00",
+      "instant_balance": "-3.00",
+      "instant_paid": "3.00",
+      "current_payout_splits": 1,
+      "calculated_balance": "0.00",
+      "balance_discrepancy": "-3.00"
+    },
+    {
+      "id": 209,
+      "refID": "4ae9409e-c925-433d-85a3-99345d6bcd27",
+      "amount": "3.00",
+      "instant_balance": "-2.00",
+      "instant_paid": "2.00",
+      "current_payout_splits": 2,
+      "calculated_balance": "1.00",
+      "balance_discrepancy": "-3.00"
+    }
+  ],
+  "total_affected": 3
+}

@@ -21,6 +21,7 @@ function postAsync(options) {
 }
 
 async function callbackHook(req, res, next) {
+  logger.info(`[callbackHook] ▶️ Start orderRef=${req.order?.refID}, type=${req.order?.type}, transactionType=${req.order?.transactionType}`);
 
   if (req.order.transactionType == 'auto') {
     try {
@@ -66,24 +67,25 @@ async function callbackHook(req, res, next) {
 
 
       // Send a POST request to callbackURL using the request library (async version)
+      const payload = {
+        type: req.order.type,
+        amount: parseFloat(amount),
+        orderId: req.order.merchantOrderId,
+        utr: transactionID,
+        status: req.order.paymentStatus,
+      };
+      logger.info(`[callbackHook] 🔔 Sending callback to client. orderId=${req.order.merchantOrderId}, amount=${payload.amount}, status=${payload.status}`);
       const { response, body } = await postAsync({
         url: callbackURL,
-        json: {
-          type: req.order.type,
-          amount: parseFloat(amount),
-          orderId: req.order.merchantOrderId,
-          utr: transactionID,
-          status: req.order.paymentStatus,
-        },
+        json: payload,
       });
 
-      logger.info(
-        `Callback sent successfully. Order ID: ${req.order.merchantOrderId}`
-      );
+      logger.info(`Callback sent successfully. Order ID: ${req.order.merchantOrderId}, statusCode=${response?.statusCode}`);
       logger.debug(body);
 
       
       if(req.hasOwnProperty('is_end_to_end_route')) {
+        logger.info(`[callbackHook] ▶️ End-to-end route detected, passing to next()`);
         next();
       } else {
         return res.json({
@@ -93,10 +95,8 @@ async function callbackHook(req, res, next) {
       }
     } catch (error) {
       console.log(error);
-      logger.error(
-        `An error occurred while trying to fetch callbackURL. Order ID: ${req.order.merchantOrderId}`
-      );
-      logger.debug(error);
+      logger.error(`[callbackHook] ❌ Error while sending callback. orderId=${req.order?.merchantOrderId}, message=${error?.message}`);
+      logger.debug(error?.stack || error);
       return res.status(500).json({
         status: false,
         message: `An error occurred while trying to fetch callbackURL. Order ID: ${req.order.merchantOrderId}`,

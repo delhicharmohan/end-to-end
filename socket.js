@@ -25,6 +25,8 @@ function initialize(server, path) {
         "http://34.27.183.239:80",
         "https://p2p-instance.de.r.appspot.com",
         "https://20240328t022808-dot-best-live-404609.uc.r.appspot.com",
+        "http://localhost:3000",
+        "http://localhost:8080"
       ],
       credentials: true,
     },
