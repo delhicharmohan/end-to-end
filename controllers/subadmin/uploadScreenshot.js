@@ -177,7 +177,7 @@ async function uploadScreenshot(req, res) {
     if (chorme_extension_logs.length) {
       if (chorme_extension_logs[0].amount == data.amount) {
         await approveChromeExtensionOrder(data, transactionId, chorme_extension_logs[0].amount);
-        data.paymentStatus = 'approved';
+        // Do not set paymentStatus to 'approved' here; approval happens after customer confirmation
         data.transactionID = transactionId;
       }
     }
@@ -217,38 +217,38 @@ async function approveChromeExtensionOrder(data, transactionID, chrome_amount) {
   const pool = await poolPromise;
   const now = moment().tz(process.env.TIMEZONE);
   const [results] = await pool.query(
-    "UPDATE orders SET chrome_status = ?, chrome_amount = ?, paymentStatus = ?, transactionID = ?, approvedBy = ?, updatedAt = ? WHERE refID = ?",
+    "UPDATE orders SET chrome_status = ?, chrome_amount = ?, transactionID = ?, updatedAt = ? WHERE refID = ?",
     [
       'completed',
       chrome_amount,
-      "approved",
       transactionID,
-      "auto_extension",
       now.format("YYYY-MM-DD HH:mm:ss"),
       data.refID,
     ]
   );
 
-  const approvedData = {
-      refID: data.refID,
-      paymentStatus: "approved",
-  };
+  // Mark related batches as system-confirmed only; do not approve payin here
+  const [batchUpdate] = await pool.query(
+    `UPDATE instant_payout_batches 
+     SET status = 'sys_confirmed',
+         system_confirmed_at = NOW(),
+         utr_no = ?
+     WHERE pay_in_order_id = ? AND status = 'pending'`,
+    [transactionID, data.id]
+  );
 
-  const changedData = {
-      refID: data.refID,
-      paymentStatus: 'approved',
-      transactionID: transactionID,
-  };
+  const affectedBatches = batchUpdate?.affectedRows ?? 0;
+  if (affectedBatches > 0) {
+    logger.info(`✅ (subadmin) sys_confirmed set for ${affectedBatches} batch(es) for payin_id=${data.id}, utr=${transactionID}`);
+  } else {
+    logger.warn(`⚠️ (subadmin) No pending batches marked sys_confirmed for payin_id=${data.id}. Possible reasons: already confirmed, wrong mapping, or missing batch.`);
+  }
 
-  const io = getIO();
-  io.emit(`${data.vendor}-order-approved-${data.refID}`, approvedData);
-  io.emit(`${data.vendor}-order-update-status-and-trnx`, changedData);
-
-  data.paymentStatus = "approved";
+  // Keep transaction ID on data for downstream use
   data.transactionID = transactionID;
 
   logger.info(
-    `Order approved successfully with utr and chrome extension from subadmin. refID:${data.refID}, orderId:${data.merchantOrderId}`
+    `✅ Chrome extension matched for ${data.refID} (subadmin), marked batch sys_confirmed; awaiting customer confirmation`
   );
 
   const validatorUsername = data.validatorUsername;
@@ -259,7 +259,7 @@ async function approveChromeExtensionOrder(data, transactionID, chrome_amount) {
   );
   const user = db_user[0];
 
-  // Update the commission and balance
+  // Update the commission and balance (allowed on chrome match), but do not approve order here
   const commissionPercentage = user.payInCommission;
   const commission = (chrome_amount * commissionPercentage) / 100;
   const balanceUpdateQuery = "UPDATE users SET balance = balance + ?, payInLimit = payInLimit - ? WHERE username = ?";

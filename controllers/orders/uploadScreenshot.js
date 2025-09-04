@@ -178,15 +178,20 @@ async function uploadScreenshot(req, res, next) {
       const pool = await poolPromise;
       
       // Update batches to system-confirmed status only
-      await pool.query(`
+      const [batchUpdate] = await pool.query(`
         UPDATE instant_payout_batches 
         SET status = 'sys_confirmed',
             system_confirmed_at = NOW(),
             utr_no = ?
         WHERE pay_in_order_id = ? AND status = 'pending'
       `, [transactionId, data.id]);
-      
-      logger.info(`✅ Updated batches to sys_confirmed for payin ${data.id}, awaiting customer confirmation`);
+
+      const affected = batchUpdate?.affectedRows ?? 0;
+      if (affected > 0) {
+        logger.info(`✅ sys_confirmed set for ${affected} batch(es) for payin_id=${data.id}, utr=${transactionId}`);
+      } else {
+        logger.warn(`⚠️ No pending batches marked sys_confirmed for payin_id=${data.id}. Possible reasons: already confirmed, wrong mapping, or missing batch.`);
+      }
     } catch (error) {
       logger.error(`❌ Error updating batch status for payin ${data.id}:`, error);
     }

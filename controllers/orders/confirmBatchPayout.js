@@ -218,6 +218,7 @@ async function confirmPayOutTransaction(req, res, next) {
 
         // If fully paid, approve payout order, send callback and respond with redirect details
         const isFullyPaid = instantPaid >= totalAmount && totalAmount > 0;
+        logger.info(`[confirmPayOutTransaction] Computed isFullyPaid=${isFullyPaid} (instantPaid=${instantPaid}, totalAmount=${totalAmount})`);
 
         if (isFullyPaid) {
           try {
@@ -333,7 +334,7 @@ async function confirmPayOutTransaction(req, res, next) {
         }
 
         // Not fully paid yet: acknowledge confirmation without redirect
-        logger.info(`[confirmPayOutTransaction] ⏳ Not fully paid yet: Paid=${instantPaid}, Total=${totalAmount}`);
+        logger.info(`[confirmPayOutTransaction] ⏳ Not fully paid yet: Paid=${instantPaid}, Total=${totalAmount}. No approval will be attempted.`);
         return res.json({
           status: true,
           message: "Batch confirmed. Awaiting full payment.",
