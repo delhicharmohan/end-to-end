@@ -43,7 +43,7 @@ module.exports = async function listInstantPayoutAvailable(req, res) {
     const base = `${proto}://${host}`;
 
     const nowSec = Math.floor(Date.now() / 1000);
-    const ttlSec = 120; // 2 minutes validity for claim links
+    const ttlSec = 1800; // 30 minutes validity for claim links
 
     const data = rows.map(r => {
       const amount = parseFloat(r.instant_balance);

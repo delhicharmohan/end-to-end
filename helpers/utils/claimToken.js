@@ -9,8 +9,11 @@ function base64urlDecode(input) {
   return Buffer.from(input, 'base64').toString();
 }
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here';
+const CLAIM_TOKEN_TTL = 1800; // 30 minutes in seconds
+
 function getSecret() {
-  return process.env.CLAIM_TOKEN_SECRET || process.env.JWT_SECRET || 'change-me-dev-secret';
+  return process.env.CLAIM_TOKEN_SECRET || JWT_SECRET || 'change-me-dev-secret';
 }
 
 function sign(payload) {
