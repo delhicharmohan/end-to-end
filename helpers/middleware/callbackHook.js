@@ -1,6 +1,7 @@
 const poolPromise = require("../../db");
 const logger = require("../../logger");
 const request = require("request");
+const { resolveCallbackURL } = require("../utils/callbackHandler");
 
 function postAsync(options) {
   return new Promise((resolve, reject) => {
@@ -33,22 +34,8 @@ async function callbackHook(req, res, next) {
         amount = req.order.amount;
       }
 
-      const pool = await poolPromise;
-
-      // Fetch callbackURL from secrets table and send a POST request with the following fields: type, amount, orderId, status
-      const [secrets] = await pool.query(
-        "SELECT * FROM secrets WHERE clientName = ?",
-        [req.order.clientName]
-      );
-
-      if (!secrets.length) {
-        logger.error(
-          `Invalid clientName. Attempted clientName: '${req.order.clientName}'`
-        );
-        return res.status(401).json({ message: "Unauthorized." });
-      }
-
-      const callbackURL = secrets[0].callbackURL;
+      // Resolve per-order callback if provided, else fallback to client-level callback from secrets
+      const callbackURL = await resolveCallbackURL(req.order);
 
       var transactionID = '';
       if(req.body.transactionID != undefined) {

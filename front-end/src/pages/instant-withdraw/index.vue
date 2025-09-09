@@ -1,8 +1,20 @@
 <template>
-
+  <!-- Chat Window Component: always available when orderId is known -->
+  <ChatWindow 
+    v-if="orderId"
+    ref="chatWindow"
+    :order-id="orderId"
+    :user-id="userId"
+    user-type="payee"
+    :initial-messages="initialMessages"
+    :hide-when-closed="true"
+    class="fixed bottom-4 right-4 z-40"
+  />
+  
 
   <section v-if="isCustomerUPIID" @contextmenu.prevent
     class="min-h-screen w-full flex flex-col bg-blue-50 justify-center items-center px-4 sm:px-6 py-8 relative overflow-hidden">
+
 
     <!-- Decorative elements removed for solid background -->
 
@@ -134,7 +146,19 @@
           
           <!-- Content -->
           <div class="relative z-10">
-            <h2 class="text-xl font-bold text-white mb-6 text-center">Batch Transactions</h2>
+            <h2 class="text-xl font-bold text-white mb-6 text-center flex items-center justify-center space-x-2">
+              <span>Batch Transactions</span>
+              <button
+                v-if="orderId"
+                @click.stop="openChatPanel"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-white"
+                title="Chat support"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21 15a4 4 0 01-4 4H8l-5 3v-3a4 4 0 01-4-4V7a4 4 0 014-4h14a4 4 0 014 4v8z"/>
+                </svg>
+              </button>
+            </h2>
 
             <div class="space-y-4">
               <!-- Empty State -->
@@ -265,6 +289,7 @@
 <script>
 import io from "socket.io-client";
 import http from "../../http-common.js";
+import ChatWindow from '../../components/chat/ChatWindow.vue';
 import VueCountdown from "@chenfengyuan/vue-countdown";
 import moment from 'moment-timezone';
 
@@ -272,10 +297,14 @@ export default {
   name: "pay",
   props: ["id"],
   components: {
+    ChatWindow,
     VueCountdown,
   },
   data() {
     return {
+      orderId: null,
+      userId: 'user_' + Math.random().toString(36).substr(2, 9), // Generate a unique user ID
+      initialMessages: [],
       isExpiateToAdmin: false,
       timezone: process.env.VUE_APP_TIMEZONE,
       instantPayoutExpiryTime: null,
@@ -316,33 +345,75 @@ export default {
   },
   computed: {},
   created() {
-
+    // Initialize socket connection
     this.socket = io(process.env.VUE_APP_SOCKET_URL, {
       path: "/wizpay-socket-path",
     });
-    // Handle events
+    
+    // Set orderId from route params if available (router path: /instant-withdraw/:id)
+    if (this.$route.params && this.$route.params.id) {
+      this.orderId = this.$route.params.id;
+      this.loadChatHistory();
+    } else if (this.id) {
+      // Fallback to prop provided by router
+      this.orderId = this.id;
+      this.loadChatHistory();
+    }
+    
+    // Handle socket events
     this.socket.on("connect", () => {
-      console.log("Connected to server to serve!!!");
+      console.log("Connected to server");
+      if (this.orderId) {
+        this.socket.emit('join-payin-room', { refID: this.orderId });
+        this.socket.emit('chat:join', { refID: this.orderId });
+      }
       this.loadPayOutOrder();
     });
 
     this.socket.on("disconnect", () => {
-      //this.loadPayOutOrder();
       this.unLoadSocketConnection();
+    });
+
+    // Listen for chat messages (server emits 'chat:message')
+    this.socket.on('chat:message', (payload) => {
+      if (payload.refID === this.orderId) {
+        this.initialMessages.push({
+          ...payload,
+          sender: payload.senderType === 'payee' ? 'user' : 'other'
+        });
+      }
     });
 
     // Listen for user count updates
     this.socket.on("userCountUpdate", (count) => {
-      console.log(`Current users listening to channel 'abc': ${count}`);
+      console.log(`Current users in room: ${count}`);
     });
 
-    //this.markAsWaitingForPayment();
+    // Initial load
     this.loadPayOutOrder();
-    //this.startTimerForReAssigning();
-
-
   },
   methods: {
+    openChatPanel() {
+      if (this.$refs.chatWindow && this.$refs.chatWindow.openChat) {
+        this.$refs.chatWindow.openChat();
+      }
+    },
+    // Load chat history when order is loaded
+    async loadChatHistory() {
+      if (!this.orderId) return;
+      
+      try {
+        const response = await http.get(`/orders/${this.orderId}/chat-public`);
+        const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+        this.initialMessages = rows.map(msg => ({
+          text: msg.message,
+          timestamp: msg.created_at,
+          sender: (msg.sender_type === 'payee') ? 'user' : 'other'
+        }));
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    },
     startTimerForReAssigning() {
       // Set a timeout to trigger the event after 30 seconds for faster matching
       setTimeout(() => {
@@ -369,6 +440,11 @@ export default {
 
 
     async loadPayOutOrder() {
+      // Load chat history if orderId is available
+      if (this.orderId) {
+        await this.loadChatHistory();
+      }
+      
       let url = `/orders/${this.id}/instant-payout`;
       try {
         const response = await http.get(url);

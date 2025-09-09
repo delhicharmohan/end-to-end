@@ -3,7 +3,7 @@ const logger = require("../../logger");
 const { v4: uuidv4 } = require("uuid");
 const { getIO } = require("../../socket");
 const moment = require("moment-timezone");
-const { sendPayoutCallback } = require('../../helpers/utils/callbackHandler');
+const { sendPayoutCallback, resolveCallbackURL } = require('../../helpers/utils/callbackHandler');
 const SocketEventHandler = require('../../helpers/utils/socketEventHandler');
 
 
@@ -286,20 +286,13 @@ async function confirmPayOutTransaction(req, res, next) {
             );
             const freshPayoutOrder = freshOrders.length ? freshOrders[0] : payoutOrder;
 
-            // Send payout callback if client has callbackURL
+            // Send payout callback using per-order callback if provided, otherwise fallback
             try {
-              const [secrets] = await pool.query(
-                "SELECT callbackURL FROM secrets WHERE clientName = ?",
-                [freshPayoutOrder.clientName]
-              );
-              if (secrets.length && secrets[0].callbackURL) {
-                logger.info(`[confirmPayOutTransaction] 🔔 Sending payout callback to ${secrets[0].callbackURL}`);
-                await sendPayoutCallback(freshPayoutOrder, secrets[0].callbackURL, utr);
-              } else {
-                logger.warn(`⚠️ No callbackURL found for client '${freshPayoutOrder.clientName}'`);
-              }
+              const cbURL = await resolveCallbackURL(freshPayoutOrder);
+              logger.info(`[confirmPayOutTransaction] 🔔 Sending payout callback to ${cbURL}`);
+              await sendPayoutCallback(freshPayoutOrder, cbURL, utr);
             } catch (cbErr) {
-              logger.error(`❌ Error sending payout callback for ${freshPayoutOrder.refID}:`, cbErr);
+              logger.error(`❌ Error sending payout callback for ${freshPayoutOrder.refID}: ${cbErr?.message || cbErr}`);
             }
 
             // Emit socket updates for frontend

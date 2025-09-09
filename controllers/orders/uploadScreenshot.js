@@ -289,31 +289,14 @@ async function approveChromeExtensionOrder(data, transactionID, chrome_amount) {
   );
 }
 
-const { sendPayinCallback } = require('../../helpers/utils/callbackHandler');
+const { sendPayinCallback, resolveCallbackURL } = require('../../helpers/utils/callbackHandler');
 const SocketEventHandler = require('../../helpers/utils/socketEventHandler');
 
 async function sendCallback(order) {
   if (order.transactionType == "auto") {
     try {
-      const pool = await poolPromise;
-
-      // Fetch callbackURL from secrets table
-      const [secrets] = await pool.query(
-        "SELECT * FROM secrets WHERE clientName = ?",
-        [order.clientName]
-      );
-
-      if (!secrets.length) {
-        logger.error(
-          `Invalid clientName. Attempted clientName: '${order.clientName}'`
-        );
-        return {
-          status: false,
-          message: `Invalid clientName. Attempted clientName: ${order.clientName}`,
-        };
-      }
-
-      const callbackURL = secrets[0].callbackURL;
+      // Resolve per-order callback if present, fallback to secrets
+      const callbackURL = await resolveCallbackURL(order);
       await sendPayinCallback(order, callbackURL);
 
     } catch (error) {

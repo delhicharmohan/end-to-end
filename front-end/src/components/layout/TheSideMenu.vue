@@ -90,6 +90,14 @@
                 </router-link>
               </li>
               <li>
+                <router-link class="py-2 flex items-center px-4 rounded hover:bg-gray-100" to="/instant-payout-market">
+                  <div class="mr-2 flex h-6 w-6 items-center justify-center rounded bg-gray-200">
+                    <icon-pay-out></icon-pay-out>
+                  </div>
+                  Instant Payout Market
+                </router-link>
+              </li>
+              <li>
                 <router-link class="py-2 flex items-center px-4 rounded hover:bg-gray-100" to="/payout">
                   <div class="mr-2 flex h-6 w-6 items-center justify-center rounded bg-gray-200">
                     <icon-pay-out></icon-pay-out>

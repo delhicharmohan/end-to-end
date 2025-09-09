@@ -1,5 +1,7 @@
 const socketIO = require("socket.io");
 const poolPromise = require("./db");
+const logger = require("./logger");
+const { resolveCallbackURL, sendGenericCallback } = require("./helpers/utils/callbackHandler");
 
 let io; // Socket.IO instance
 const onlineUsers = {};
@@ -72,6 +74,175 @@ function handleConnection(socket) {
           await removeFromChannel(channel);
         }
       }
+    }
+  });
+
+  // Join payin room keyed by payout refID
+  socket.on("join-payin-room", async ({ refID }) => {
+    try {
+      if (!refID) return;
+      const pool = await poolPromise;
+      let payoutRefID = null;
+      let payoutRecord = null;
+
+      // First, see if refID is a payout
+      const [payoutRows] = await pool.query(
+        "SELECT id, refID, vendor FROM orders WHERE refID = ? AND type = 'payout'",
+        [refID]
+      );
+      if (payoutRows.length) {
+        payoutRecord = payoutRows[0];
+        payoutRefID = payoutRecord.refID;
+      } else {
+        // Else, try as payin: find linked payout via latest batch
+        const [payinRows] = await pool.query(
+          "SELECT id, refID FROM orders WHERE refID = ? AND type = 'payin'",
+          [refID]
+        );
+        if (payinRows.length) {
+          const payin = payinRows[0];
+          const [linked] = await pool.query(
+            `SELECT o.id, o.refID, o.vendor FROM instant_payout_batches b JOIN orders o ON o.id = b.order_id
+             WHERE b.pay_in_order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
+            [payin.id]
+          );
+          if (linked.length) {
+            payoutRecord = linked[0];
+            payoutRefID = payoutRecord.refID;
+          }
+        }
+      }
+
+      // Always join the provided refID room
+      socket.join(`payin:${refID}`);
+      // Also join the normalized payout room if resolved
+      if (payoutRefID && payoutRefID !== refID) {
+        socket.join(`payin:${payoutRefID}`);
+      }
+
+      // Lookup payout & related payin to compute remaining time and vendors
+      const payout = payoutRecord;
+      if (!payout) return;
+
+      // Find the most recent linked pending payin (if any) to derive expires_at
+      const [linked] = await pool.query(
+        `SELECT o.vendor, o.expires_at
+         FROM instant_payout_batches b
+         JOIN orders o ON o.id = b.pay_in_order_id
+         WHERE b.order_id = ? AND b.status = 'pending'
+         ORDER BY b.created_at DESC LIMIT 1`,
+        [payout.id]
+      );
+
+      let remainingSeconds = null;
+      let payerVendor = null;
+      if (linked.length && linked[0].expires_at) {
+        const expiresAt = new Date(linked[0].expires_at).getTime();
+        remainingSeconds = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+        payerVendor = linked[0].vendor;
+      }
+
+      // Notify connected parties without exposing cross vendor identities
+      if (payerVendor) {
+        io.emit(`${payerVendor}-payer-connected`, { refID, remainingSeconds });
+      }
+      io.emit(`${payout.vendor}-payer-connected`, { refID, remainingSeconds });
+
+      // Send webhook notifications to payout and linked payin callbacks (if any)
+      try {
+        // webhook to payout order callback
+        const payoutCallbackURL = await resolveCallbackURL(payout);
+        if (payoutCallbackURL) {
+          sendGenericCallback({
+            ...payout,
+            event: 'payer_connected',
+            payload: { refID, remainingSeconds }
+          }, payoutCallbackURL, { event: 'payer_connected', refID, remainingSeconds });
+        }
+        // webhook to payer (linked payin) callback if exists
+        if (linked.length) {
+          const [payinOrderRows] = await pool.query("SELECT * FROM orders WHERE vendor = ? AND type='payin' AND expires_at IS NOT NULL ORDER BY createdAt DESC LIMIT 1", [payerVendor]);
+          if (payinOrderRows.length) {
+            const payinOrder = payinOrderRows[0];
+            const payinCallbackURL = await resolveCallbackURL(payinOrder);
+            if (payinCallbackURL) {
+              sendGenericCallback({
+                ...payinOrder,
+                event: 'payer_connected',
+                payload: { refID, remainingSeconds }
+              }, payinCallbackURL, { event: 'payer_connected', refID, remainingSeconds });
+            }
+          }
+        }
+      } catch (whErr) {
+        logger.warn(`[socket] payer_connected webhook failed: ${whErr?.message}`);
+      }
+    } catch (e) {
+      logger.warn(`[socket] join-payin-room failed: ${e?.message}`);
+    }
+  });
+
+  // Chat join (persistent channel)
+  socket.on("chat:join", ({ refID }) => {
+    if (!refID) return;
+    socket.join(`payin:${refID}`);
+  });
+
+  // Chat message persist + broadcast
+  socket.on("chat:message", async ({ refID, senderType, senderVendor, message }) => {
+    try {
+      if (!refID || !message || !senderType) return;
+      const pool = await poolPromise;
+      // Resolve payout order id for refID
+      const [rows] = await pool.query(
+        "SELECT id FROM orders WHERE refID = ? AND type = 'payout'",
+        [refID]
+      );
+      if (!rows.length) return;
+      const orderId = rows[0].id;
+      await pool.query(
+        `INSERT INTO instant_payout_chats (order_id, ref_id, sender_type, sender_vendor, message)
+         VALUES (?, ?, ?, ?, ?)`,
+        [orderId, refID, senderType, senderVendor || null, message]
+      );
+      io.to(`payin:${refID}`).emit("chat:message", { refID, senderType, message, ts: Date.now() });
+
+      // Send webhooks to payout and linked payin callbacks
+      try {
+        const [payoutOrderRows] = await pool.query("SELECT * FROM orders WHERE refID = ? AND type = 'payout'", [refID]);
+        if (payoutOrderRows.length) {
+          const payoutOrder = payoutOrderRows[0];
+          const payoutCallbackURL = await resolveCallbackURL(payoutOrder);
+          if (payoutCallbackURL) {
+            sendGenericCallback({
+              ...payoutOrder,
+              event: 'chat_message',
+              payload: { refID, senderType, senderVendor, message }
+            }, payoutCallbackURL, { event: 'chat_message', refID, senderType, senderVendor, message });
+          }
+          // find linked payin via batches (most recent pending)
+          const [linkedPayin] = await pool.query(
+            `SELECT o.* FROM instant_payout_batches b JOIN orders o ON o.id = b.pay_in_order_id
+             WHERE b.order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
+            [payoutOrder.id]
+          );
+          if (linkedPayin.length) {
+            const payinOrder = linkedPayin[0];
+            const payinCallbackURL = await resolveCallbackURL(payinOrder);
+            if (payinCallbackURL) {
+              sendGenericCallback({
+                ...payinOrder,
+                event: 'chat_message',
+                payload: { refID, senderType, senderVendor, message }
+              }, payinCallbackURL, { event: 'chat_message', refID, senderType, senderVendor, message });
+            }
+          }
+        }
+      } catch (whErr) {
+        logger.warn(`[socket] chat webhook failed: ${whErr?.message}`);
+      }
+    } catch (e) {
+      logger.warn(`[socket] chat:message failed: ${e?.message}`);
     }
   });
 }

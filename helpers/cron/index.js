@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const logger = require("../../logger");
 const updateOrders = require("./orders/updateOrders");
+const expirePayinsTask = require("./orders/expirePayins");
 
 const NewOrderController = require("../cron/orders/newOrderController");
 const newOrderController = new NewOrderController();
@@ -31,4 +32,13 @@ const moveOldTransactionsTask = async () => {
 
 // Schedule the cron job to move old transactions to run every day at 2:00 AM
 cron.schedule('30 20 * * *', moveOldTransactionsTask);
+
+// Schedule: expire pending payins every minute and revert balances safely
+cron.schedule('* * * * *', async () => {
+    try {
+        await expirePayinsTask();
+    } catch (err) {
+        logger.error(`[cron] expirePayinsTask failed: ${err?.message}`);
+    }
+});
 module.exports = cron;

@@ -1,6 +1,7 @@
 const poolPromise = require("../../db");
 const logger = require("../../logger");
 const request = require("request");
+const { resolveCallbackURL } = require("../utils/callbackHandler");
 
 function postAsync(options) {
   return new Promise((resolve, reject) => {
@@ -19,22 +20,10 @@ async function payOutCallbackHook(req, res) {
     try {
       const pool = await poolPromise;
 
-      // Fetch payout callbackURL from secrets table and send a POST request with the following fields: type, amount, orderId, status
-      const [secrets] = await pool.query(
-        "SELECT * FROM secrets WHERE clientName = ?",
-        [req.order.clientName]
-      );
+      // Resolve per-order callback if provided, else fallback to client-level callback
+      const callbackURL = await resolveCallbackURL(req.order);
 
-      if (!secrets.length) {
-        logger.error(
-          `Invalid clientName. Attempted clientName: '${req.order.clientName}'`
-        );
-        return res.status(401).json({ message: "Unauthorized." });
-      }
-
-      const callbackURL = secrets[0].payOutCallbackURL;
-
-      const walletCallBack = secrets[0].wallet_callback;
+      const walletCallBack = null; // deprecated wallet callback handling
       
       
 
@@ -92,11 +81,11 @@ async function payOutCallbackHook(req, res) {
     } catch (error) {
       console.log(error);
       logger.error(
-        `An error occurred while trying to fetch Pay Out callbackURL. Order ID: ${req.order.merchantOrderId}`
+        `An error occurred while trying to send Pay Out callback. Order ID: ${req.order.merchantOrderId}`
       );
       logger.debug(error);
       return res.status(500).json({
-        message: `An error occurred while trying to fetch Pay Out callbackURL. Order ID: ${req.order.merchantOrderId}`,
+        message: `An error occurred while trying to send Pay Out callback. Order ID: ${req.order.merchantOrderId}`,
       });
     }
   } else {

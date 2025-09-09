@@ -16,7 +16,7 @@ async function getStatus(req, res, next) {
     const pool = await poolPromise;
 
     const [results] = await pool.query(
-      "SELECT is_end_to_end, merchantOrderID, refID, type, paymentStatus, approvedBy, createdAt, updatedAt, validatorUsername, amount, actualAmount, customerUPIID, returnUrl, transactionID as utr, vendor, accountNumber, ifsc, bankName, paymentMethod, website FROM orders WHERE refID = ?",
+      "SELECT is_end_to_end, merchantOrderID, refID, type, clientName, receiptId, paymentStatus, approvedBy, createdAt, updatedAt, expires_at, validatorUsername, validatorUPIID, amount, actualAmount, customerUPIID, returnUrl, transactionID as utr, vendor, accountNumber, ifsc, bankName, paymentMethod, website FROM orders WHERE refID = ?",
       [refID]
     );
 
@@ -32,12 +32,31 @@ async function getStatus(req, res, next) {
       let result = results[0];
       const actualAmount = result.actualAmount;
       const paymentMethod = result.paymentMethod;
+      // compute payee upi id for front-end QR generation
+      let payeeUPIID = result.validatorUPIID || null;
+      if (!payeeUPIID && result.validatorUsername) {
+        const [userRows] = await pool.query(
+          "SELECT upiid FROM users WHERE username = ? AND status = 1 LIMIT 1",
+          [result.validatorUsername]
+        );
+        if (userRows && userRows.length) payeeUPIID = userRows[0].upiid;
+      }
+      // Fallback: if still not found and this is a pay-in, try batch link
+      if (!payeeUPIID && result.type === 'payin') {
+        const [batchRows] = await pool.query(
+          "SELECT payment_to FROM instant_payout_batches WHERE pay_in_ref_id = ? ORDER BY created_at DESC LIMIT 1",
+          [result.refID]
+        );
+        if (batchRows && batchRows.length) payeeUPIID = batchRows[0].payment_to;
+      }
+      result.payeeUPIID = payeeUPIID || null;
+      result.validatorUPIID = result.validatorUPIID || null;
       if (result.type == 'payin') {
-          delete result.accountNumber;
-          delete result.ifsc;
-          delete result.bankName;
+        delete result.accountNumber;
+        delete result.ifsc;
+        delete result.bankName;
         
-          return res.json(result);
+        return res.json(result);
       }
     } else {
       const username = results[0].validatorUsername;
@@ -56,11 +75,29 @@ async function getStatus(req, res, next) {
           delete result.accountNumber;
           delete result.ifsc;
           delete result.bankName;
-  
+          // compute payee upi id for front-end QR generation
+          let payeeUPIID = result.validatorUPIID || null;
+          if (!payeeUPIID && username) {
+            const [userRows] = await pool.query(
+              "SELECT upiid FROM users WHERE username = ? AND status = 1 LIMIT 1",
+              [username]
+            );
+            if (userRows && userRows.length) payeeUPIID = userRows[0].upiid;
+          }
+          // Fallback: if still not found, try batch link
+          if (!payeeUPIID) {
+            const [batchRows] = await pool.query(
+              "SELECT payment_to FROM instant_payout_batches WHERE pay_in_ref_id = ? ORDER BY created_at DESC LIMIT 1",
+              [result.refID]
+            );
+            if (batchRows && batchRows.length) payeeUPIID = batchRows[0].payment_to;
+          }
+          result.payeeUPIID = payeeUPIID || null;
+          result.validatorUPIID = result.validatorUPIID || null;
           if (paymentMethod == 'automatic_payment_with_sms' || paymentMethod == 'chrome_extension_with_decimal') {
             result.amount = actualAmount;
           }
-  
+
           return res.json(result);
         } else {
           delete result.customerUPIID;

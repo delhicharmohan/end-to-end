@@ -1,0 +1,12 @@
+{
+  "type": "payin",
+  "amount": 500.0,
+  "merchantOrderID": "TEST-ORDER-002",
+  "customerUPIID": "user@upi",
+  "mode": "upi",
+  "returnUrl": "https://example.com/return",
+  "callback": "https://webhook.site/1d555f13-8394-497d-967c-dafdd1a8e8eb",
+  "customerName": "Test User",
+  "customerIp": "127.0.0.1",
+  "customerMobile": "9999999999"
+}

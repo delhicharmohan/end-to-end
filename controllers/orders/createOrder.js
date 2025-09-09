@@ -5,6 +5,7 @@ const logger = require("../../logger");
 const moment = require("moment-timezone");
 const { getIO } = require("../../socket");
 const getEndToEndValidator = require("../../helpers/getEndToEndValidator");
+const { resolveCallbackURL, sendGenericCallback } = require("../../helpers/utils/callbackHandler");
 
 const generateReceiptId = require('../../helpers/utils/generateReceiptId');
 const BalanceUpdater = require('../../helpers/utils/balanceUpdater');
@@ -56,7 +57,7 @@ async function findTransactionFee(uniqueIdentifier, fiveMinutesAgo) {
 async function createOrder(req, res, next) {
 
   const { vendor } = req.headers;
-  let { website = "", type, amount, payoutType, customerUPIID, accountNumber, ifsc, bankName, merchantOrderID, mode, returnUrl, customerName, customerIp, customerMobile } = req.body;
+  let { website = "", type, amount, payoutType, customerUPIID, accountNumber, ifsc, bankName, merchantOrderID, mode, returnUrl, customerName, customerIp, customerMobile, callback } = req.body;
 
   console.log(customerMobile);
   console.log(payoutType);
@@ -96,8 +97,6 @@ async function createOrder(req, res, next) {
           customerAsValidator = await getEndToEndValidator(amount, vendor, customerMobile);
           if(customerAsValidator) {
             console.log(`✅ End-to-end validation SUCCESS: Found payout order ${customerAsValidator.id} for amount ${customerAsValidator.instant_balance}`);
-            let duplicateInsertQuery = `INSERT INTO instant_payin_logs ('customer_mobile', 'order_id') VALUES (?, ?)`;
-            let duplicateInsert = await pool.query(duplicateInsertQuery, [customerMobile, customerAsValidator.id]);
           } else {
             console.log(`❌ End-to-end validation FAILED: No suitable payout found for amount ${amount} and vendor ${vendor}`);
           }
@@ -155,6 +154,24 @@ async function createOrder(req, res, next) {
       }
     }
 
+    // Validate optional callback URL
+    let callback_url = null;
+    if (callback) {
+      try {
+        const parsed = new URL(callback);
+        const isProd = process.env.NODE_ENV === 'production';
+        if (isProd && parsed.protocol !== 'https:') {
+          return res.status(400).json({ success: false, message: 'callback must use HTTPS in production' });
+        }
+        if (callback.length > 2048) {
+          return res.status(400).json({ success: false, message: 'callback URL too long' });
+        }
+        callback_url = callback;
+      } catch (e) {
+        return res.status(400).json({ success: false, message: 'Invalid callback URL' });
+      }
+    }
+
     const data = {
       refID: uuidv4(),
       receiptId: generateReceiptId(),
@@ -168,6 +185,7 @@ async function createOrder(req, res, next) {
       amount: finalAmount,
       mode,
       returnUrl,
+      callback_url,
       paymentStatus: orderStatus,
       validatorUsername: validatorDetails.username,
       validatorUPIID: validatorDetails.upiid,
@@ -183,7 +201,9 @@ async function createOrder(req, res, next) {
       diffAmount,
       payout_type: isPayout ? payoutType : null,
       is_end_to_end: customerAsValidator ? true: false,
-      ...isPayout && { accountNumber, ifsc, bankName, mode: "IMPS" }
+      ...isPayout && { accountNumber, ifsc, bankName, mode: "IMPS" },
+      // Initialize instant balance for instant payouts so matching/claims work
+      ...(isPayout && isInstantPayout && { is_instant_payout: 1, instant_balance: amount, current_payout_splits: 0 })
     };
 
     const pool = await poolPromise;
@@ -202,6 +222,26 @@ async function createOrder(req, res, next) {
     }
 
     const insertedOrder = selectResult[0];
+
+    // Log this pay-in attempt to prevent duplicate matches with the same payout for the same mobile
+    if (type === 'payin' && customerAsValidator && customerMobile) {
+      try {
+        await pool.query("INSERT INTO instant_payin_logs (`customer_mobile`, `order_id`) VALUES (?, ?)", [customerMobile, customerAsValidator.id]);
+      } catch (e) {
+        logger.warn(`instant_payin_logs insert failed: ${e?.message || e}`);
+      }
+    }
+
+    // Attempt to send initial "created" callback using per-order callback if provided
+    // This should not block or fail the order creation; errors are logged only
+    (async () => {
+      try {
+        const callbackURL = await resolveCallbackURL(insertedOrder);
+        await sendGenericCallback(insertedOrder, callbackURL, { status: insertedOrder.paymentStatus });
+      } catch (cbErr) {
+        logger.error(`Initial callback send failed for order ${insertedOrder.merchantOrderId}: ${cbErr?.message || cbErr}`);
+      }
+    })();
     const io = getIO();
 
     if (isInstantPayout) {

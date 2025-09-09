@@ -1,37 +1,48 @@
 <template>
-  <section @contextmenu.prevent class="h-full w-full flex flex-col bg-gray-50 justify-center items-center px-4 sm:px-0">
+  <section @contextmenu.prevent class="min-h-screen w-full flex flex-col bg-blue-50 justify-center items-center px-4 sm:px-6 py-8">
+    <!-- Chat Window Component -->
+    <ChatWindow 
+      v-if="orderId"
+      ref="chatWindow"
+      :order-id="orderId"
+      :user-id="userId"
+      user-type="payer"
+      :initial-messages="initialMessages"
+      :hide-when-closed="true"
+      class="fixed bottom-4 right-4 z-40"
+    />
     <base-page-spinner v-if="showTransactionBar"></base-page-spinner>
     <base-dialog :show="!!error" title="An error occurred!" @close="closeTheDialogBox">
       <p>{{ error }}</p>
     </base-dialog>
     <transition v-if="showForm" name="slide-right" mode="out-in">
       <div key="1" v-if="isUpiIdSubmitted"
-        class="w-100-per sm:w-400 bg-white shadow-lg rounded-none sm:rounded-lg border flex flex-col">
+        class="w-100-per sm:w-400 bg-white shadow-2xl rounded-3xl border border-blue-600 flex flex-col overflow-hidden">
         <div
           v-if="paymentMethod === 'UPI' || paymentMethod === 'automatic_payment_with_sms' || paymentMethod === 'automatic_payment_with_extension' || paymentMethod === 'static_qr' || paymentMethod === 'chrome_extension_with_decimal'"
-          class="flex justify-between items-center bg-wizpay-red p-4 text-white rounded-none sm:rounded-t-lg">
+          class="flex justify-between items-center bg-blue-700 p-4 text-white">
           <div>Payment Time Left</div>
-          <vue-countdown class="flex items-center px-2 py-2 bg-timer rounded-lg" @start="countDownStarted"
+          <vue-countdown class="flex items-center px-2 py-1 bg-blue-600 text-white rounded-lg" @start="countDownStarted"
             @progress="onCountdownProgress" @end="countDownEnd" :time="countDownLimit" v-slot="{ minutes, seconds }">
             <div>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                stroke="currentColor" class="w-6 h-6">
+                stroke="currentColor" class="w-5 h-5 text-white">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <div class="w-3 flex items-center ml-1">
+            <div class="w-3 flex items-center ml-1 text-white">
               {{ minutes }}
             </div>
             <div class="flex items-center justify-center leading-none pb-1 mr-1">
               :
             </div>
-            <div class="w-6 flex items-center">
+            <div class="w-6 flex items-center text-white">
               {{ seconds }}
             </div>
           </vue-countdown>
         </div>
-        <div v-else class="flex justify-between items-center bg-wizpay-red p-4 text-white rounded-none sm:rounded-t-lg">
+        <div v-else class="flex justify-between items-center bg-blue-700 p-4 text-white">
           <div>Payment Details</div>
         </div>
         <div class="flex flex-col items-center text-center p-4">
@@ -48,8 +59,21 @@
               <div>Enter the same amount and submit the UTR</div>
             </div>
           </div>
-          <div class="text-sm font-semibold">Transfer Amount</div>
-          <div class="text-2xl font-bold" :class="isHighAmount ? 'text-wizpay-red' : ''">Rs. {{ amount }}/-</div>
+          <div class="text-sm font-semibold flex items-center space-x-2">
+            <span>Transfer Amount</span>
+            <!-- Inline Chat Icon Button -->
+            <button
+              v-if="orderId"
+              @click.stop="openChatPanel"
+              class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              title="Chat support"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 15a4 4 0 01-4 4H8l-5 3v-3a4 4 0 01-4-4V7a4 4 0 014-4h14a4 4 0 014 4v8z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="text-2xl font-bold" :class="isHighAmount ? 'text-blue-600' : ''">Rs. {{ amount }}/-</div>
           <div
             v-if="paymentMethod === 'UPI' || paymentMethod === 'automatic_payment_with_sms' || paymentMethod === 'automatic_payment_with_extension' || paymentMethod === 'static_qr' || paymentMethod === 'chrome_extension_with_decimal'"
             class="flex flex-col w-full">
@@ -76,7 +100,7 @@
               </div>
             </div>
 
-            <div v-if="isHighAmount" class="text-red-1 text-xxs mt-1">Don't use the same QR code to pay multiple times
+            <div v-if="isHighAmount" class="text-blue-100 text-xxs mt-1">Don't use the same QR code to pay multiple times
             </div>
 
             <div class="mt-4 w-full flex items-center justify-center">
@@ -84,13 +108,32 @@
               <span class="font-medium leading-none uppercase">{{ receiptId }}</span>
             </div>
 
+            <!-- Always show UPI ID with copy-to-clipboard -->
+            <div v-if="validatorUPIID" class="mt-2 w-full flex items-center justify-center">
+              <div class="flex items-center bg-blue-50 px-3 py-2 rounded-lg">
+                <span class="text-gray-600 text-xs mr-2">UPI ID</span>
+                <span class="text-blue-700 text-sm font-semibold select-all">{{ validatorUPIID }}</span>
+                <button class="ml-2" @click.stop="copyToClipBoardUpiId" title="Copy UPI ID">
+                  <svg v-if="isUpiIdCopied" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-green-600">
+                    <path fill-rule="evenodd" d="M17.663 3.118c.225.015.45.032.673.05C19.876 3.298 21 4.604 21 6.109v9.642a3 3 0 01-3 3V16.5c0-5.922-4.576-10.775-10.384-11.217.324-1.132 1.3-2.01 2.548-2.114.224-.019.448-.036.673-.051A3 3 0 0113.5 1.5H15a3 3 0 012.663 1.618zM12 4.5A1.5 1.5 0 0113.5 3H15a1.5 1.5 0 011.5 1.5H12z" clip-rule="evenodd"/>
+                    <path d="M3 8.625c0-1.036.84-1.875 1.875-1.875h.375A3.75 3.75 0 019 10.5v1.875c0 1.036.84 1.875 1.875 1.875h1.875A3.75 3.75 0 0116.5 18v2.625c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 013 20.625v-12z"/>
+                    <path d="M10.5 10.5a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963 5.23 5.23 0 00-3.434-1.279h-1.875a.375.375 0 01-.375-.375V10.5z"/>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-blue-700">
+                    <title>Copy to clipboard</title>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9-3.664A2.251 2.251 0 0015 2.25h-1.5a2.251 2.251 0 00-2.15 1.586m5.8 0c.065.21.1.433.1.664v.75h-6V4.5c0-.231.035-.454.1-.664M6.75 7.5H4.875c-.621 0-1.125.504-1.125 1.125v12c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V16.5a9 9 0 00-9-9z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
             <div v-if="!isHighAmount" class="grid grid-cols-1 gap-4 mt-4 px-6"
               :class="isPayNow ? 'sm:grid-cols-2' : ''">
               <a v-if="isPayNow" :href="gpayLink"
-                class="cursor-pointer border-2 border-wizpay-red bg-wizpay-red hover:bg-white rounded-lg px-4 py-2 text-white hover:text-wizpay-red">Pay
+                class="cursor-pointer border-2 border-blue-600 bg-blue-600 hover:bg-white rounded-lg px-4 py-2 text-white hover:text-blue-600">Pay
                 Now</a>
               <div v-if="showDownloadBtn" @click.stop="downloadQrCode"
-                class="cursor-pointer border-2 border-wizpay-red bg-wizpay-red hover:bg-white rounded-lg px-4 py-2 text-white hover:text-wizpay-red">
+                class="cursor-pointer border-2 border-blue-600 bg-blue-600 hover:bg-white rounded-lg px-4 py-2 text-white hover:text-blue-600">
                 Download QR</div>
             </div>
 
@@ -100,22 +143,22 @@
                 Copy the UPI ID below, pay the same amount, and enter the UTR
               </div> -->
 
-              <div class="mt-4 border-2 border-wizpay-red px-4 py-8 rounded-lg flex flex-col">
+              <div class="mt-4 border-2 border-blue-600 px-4 py-8 rounded-lg flex flex-col">
                 <div class="flex justify-between items-center">
                   <div v-if="!isEndToPay" @click.stop="selectButton('utr')"
-                    :class="selectedButton == 'utr' ? 'bg-wizpay-red text-white' : 'bg-gray-300 text-wizpay-red'"
+                    :class="selectedButton == 'utr' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-blue-600'"
                     class="hover:bg-wizpay-red hover:text-white text-xs font-semibold flex-grow py-2 rounded-lg cursor-pointer">
                     Enter UTR</div>
                   <div @click.stop="selectButton('screenshot')"
-                    :class="selectedButton == 'screenshot' ? 'bg-wizpay-red text-white' : 'bg-gray-300 text-wizpay-red'"
+                    :class="selectedButton == 'screenshot' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-blue-600'"
                     class="hover:bg-wizpay-red hover:text-white text-xs font-semibold flex-grow py-2 rounded-lg cursor-pointer ml-2">
                     Upload Screenshot</div>
                   <div v-if="!isEndToPay" @click.stop="selectButton('copy')"
-                    :class="selectedButton == 'copy' ? 'bg-wizpay-red text-white' : 'bg-gray-300 text-wizpay-red'"
+                    :class="selectedButton == 'copy' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-blue-600'"
                     class="hover:bg-wizpay-red hover:text-white text-xs font-semibold flex-grow py-2 rounded-lg cursor-pointer ml-2">
                     Copy UPI ID</div>
                 </div>
-                <div v-if="selectedButton == ''" class="mt-2 text-xxs text-wizpay-red">Select the preferred payment
+                <div v-if="selectedButton == ''" class="mt-2 text-xxs text-blue-600">Select the preferred payment
                   option to complete the payment.</div>
                 <div v-else>
                   <div v-if="selectedButton == 'utr'">
@@ -134,7 +177,7 @@
                         </p>
                         <div class="flex justify-center mt-2">
                           <div @click.stop="addCustomerUtr"
-                            class="h-8 flex items-center justify-center border px-4 bg-wizpay-red hover:bg-white text-white hover:text-wizpay-red border-wizpay-red rounded-lg cursor-pointer">
+                            class="h-8 flex items-center justify-center border px-4 bg-blue-600 hover:bg-white text-white hover:text-blue-600 border-blue-600 rounded-lg cursor-pointer">
                             Submit
                           </div>
                         </div>
@@ -168,14 +211,14 @@
                             </div>
                           </div>
                           <div v-else @click.stop="onPickFile('uploadScreenshot')"
-                            class="h-8 bg-wizpay-gray text-gray-400 text-xs text-center rounded-lg cursor-pointer flex justify-center items-center">
+                            class="h-8 bg-blue-50 text-blue-600 text-xs text-center rounded-lg cursor-pointer flex justify-center items-center">
                             Upload Payment Receipt</div>
                         </div>
-                        <p v-if="!uploadScreenshot.isValid" class="text-xxs text-red-600 text-center">{{
+                        <p v-if="!uploadScreenshot.isValid" class="text-xxs text-blue-600 text-center">{{
                           uploadScreenshot.msg }}</p>
                         <div class="flex justify-center mt-2">
                           <div @click.stop="submitUploadScreenshot"
-                            class="h-8 flex items-center justify-center border px-4 bg-wizpay-red hover:bg-white text-white hover:text-wizpay-red border-wizpay-red rounded-lg cursor-pointer">
+                            class="h-8 flex items-center justify-center border px-4 bg-blue-600 hover:bg-white text-white hover:text-blue-600 border-blue-600 rounded-lg cursor-pointer">
                             Submit
                           </div>
                         </div>
@@ -586,38 +629,6 @@
         <div class="text-xs text-center -mt-2">100% Secure Payments</div>
 
 
-        <div
-          class="mt-4 w-full flex flex-col items-center justify-center bg-wizpay-red rounded-none sm:rounded-b-lg text-white p-4">
-          <div class="text-xs">Watch a video for quick payment instructions.</div>
-          <div class="w-full flex justify-between items-center flex-wrap mt-2 sm:px-4">
-            <div @click.stop="openVideoModal('telugu')" class="flex justify-start items-center cursor-pointer">
-              <div class="mr-1">
-                <img class="text-white h-4" src="../../assets/images/default/youtube.svg" />
-              </div>
-              <div class="text-sm">Telugu</div>
-            </div>
-            <div @click.stop="openVideoModal('kannada')" class="flex justify-start items-center cursor-pointer">
-              <div class="mr-1">
-                <img class="text-white h-4" src="../../assets/images/default/youtube.svg" />
-              </div>
-              <div class="text-sm">Kannada</div>
-            </div>
-            <div @click.stop="openVideoModal('hindi')" class="flex justify-start items-center cursor-pointer">
-              <div class="mr-1">
-                <img class="text-white h-4" src="../../assets/images/default/youtube.svg" />
-              </div>
-              <div class="text-sm">Hindi</div>
-            </div>
-            <div @click.stop="openVideoModal('malayalam')" class="flex justify-start items-center cursor-pointer">
-              <div class="mr-1">
-                <img class="text-white h-4" src="../../assets/images/default/youtube.svg" />
-              </div>
-              <div class="text-sm">Malayalam</div>
-            </div>
-          </div>
-        </div>
-
-
         <!-- <div @click.stop="unableToPay" class="bg-red-600 text-white text-center p-4 rounded-b-lg font-bold cursor-pointer">Click Here if unable to pay</div> -->
       </div>
       <base-card key="2" v-else>
@@ -660,16 +671,7 @@
       </base-full-modal>
     </transition>
 
-    <transition name="fade" mode="out-in">
-      <base-modal v-if="showVideoModal" :title="videoModalTitle" @close="closeVideoModal">
-        <div class="px-8 pt-8 flex justify-center">
-          <iframe width="560" height="315" :src="videoModalUrl" title="YouTube video player" frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
-          </iframe>
-        </div>
-      </base-modal>
-    </transition>
+    
 
     <div class="h-full flex justify-center items-center" v-if="isLoading">
       <base-page-spinner-new type="spin" class-list="h-20"></base-page-spinner-new>
@@ -681,6 +683,7 @@
 import VueCountdown from "@chenfengyuan/vue-countdown";
 import http from "../../http-common.js";
 import VueQRCodeComponent from "vue-qrcode-component";
+import ChatWindow from '../../components/chat/ChatWindow.vue';
 import html2canvas from "html2canvas";
 import { saveAs } from "file-saver";
 import io from "socket.io-client";
@@ -692,6 +695,7 @@ export default {
   name: "pay",
   props: ["id"],
   components: {
+    ChatWindow,
     VueCountdown,
     "qr-code": VueQRCodeComponent,
     CreateTicket,
@@ -701,6 +705,9 @@ export default {
   },
   data() {
     return {
+      orderId: null,
+      userId: 'user_' + Math.random().toString(36).substr(2, 9), // Generate a unique user ID
+      initialMessages: [],
       isEndToPay: false,
       isPaymentSuccessful: false,
       customerUpiId: {
@@ -846,17 +853,63 @@ export default {
       path: "/wizpay-socket-path",
     });
 
+    // Set orderId from route params if available (router path: /pay/:id)
+    if (this.$route.params && this.$route.params.id) {
+      this.orderId = this.$route.params.id;
+      this.loadChatHistory();
+    } else if (this.id) {
+      // Fallback: use prop if provided by router props
+      this.orderId = this.id;
+      this.loadChatHistory();
+    }
+
     // Handle events
     this.socket.on("connect", () => {
       console.log("Connected to server");
+      if (this.orderId) {
+        this.socket.emit('join-payin-room', { refID: this.orderId });
+        this.socket.emit('chat:join', { refID: this.orderId });
+      }
     });
 
     this.socket.on("disconnect", () => {
       console.log("Disconnected from server");
     });
+
+    // Listen for chat messages (server emits 'chat:message')
+    this.socket.on('chat:message', (payload) => {
+      if (payload.refID === this.orderId) {
+        this.initialMessages.push({
+          ...payload,
+          sender: payload.senderType === 'payer' ? 'user' : 'other'
+        });
+      }
+    });
+
     this.checkTheOrderExist();
   },
   methods: {
+    openChatPanel() {
+      if (this.$refs.chatWindow && this.$refs.chatWindow.openChat) {
+        this.$refs.chatWindow.openChat();
+      }
+    },
+    // Load chat history when order is loaded
+    async loadChatHistory() {
+      if (!this.orderId) return;
+      
+      try {
+        const response = await http.get(`/orders/${this.orderId}/chat-public`);
+        const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+        this.initialMessages = rows.map(msg => ({
+          text: msg.message,
+          timestamp: msg.created_at,
+          sender: (msg.sender_type === 'payer') ? 'user' : 'other'
+        }));
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      }
+    },
     onPickFile(ref) {
       this.$refs[ref].click();
     },
@@ -1070,7 +1123,20 @@ export default {
       }
     },
     generateUpiQrCodeString(data) {
-      this.validatorUPIID = data.validatorUPIID;
+      // Try multiple possible keys from API payloads
+      this.validatorUPIID =
+        data.payeeUPIID ||
+        data.validatorUPIID ||
+        data.validatorUpiId ||
+        data.validator_upi_id ||
+        data.customerUPIID ||
+        data.customerUpiId ||
+        data.customer_upi_id ||
+        data.upi || data.upiId || data.upiID ||
+        data.customerUPIID ||
+        data.customerUpiId ||
+        data.customer_upi_id ||
+        '';
       const paying = data.clientName;
       this.amount = data.amount;
       this.txnFee = data.txnFee;
@@ -1079,7 +1145,27 @@ export default {
       this.returnUrl = data.returnUrl;
       localStorage.setItem("orderCreatedBy", data.created_by);
       localStorage.setItem("orderReceiptId", data.receiptId);
-      this.qrCodeText = `upi://pay?pa=${this.validatorUPIID}&pn=${paying}&tr=${this.receiptId}&tn=${this.receiptId}&am=${this.amount}&cu=INR`;
+      // Prefer QR text from API if provided (various keys), then extract UPI ID (pa=)
+      const apiQrText =
+        data.qrCodeText ||
+        data.qrText ||
+        data.qr_code_text ||
+        data.qrCode ||
+        data.qr ||
+        '';
+      this.qrCodeText = apiQrText || `upi://pay?pa=${this.validatorUPIID}&pn=${paying}&tr=${this.receiptId}&tn=${this.receiptId}&am=${this.amount}&cu=INR`;
+      // Extract UPI ID (pa=) from QR text if not present yet
+      if (!this.validatorUPIID && this.qrCodeText) {
+        try {
+          const q = this.qrCodeText.split('?')[1] || '';
+          const params = new URLSearchParams(q);
+          const pa = params.get('pa');
+          if (pa) this.validatorUPIID = pa;
+        } catch (e) {
+          // Fallback parse failed; keep validatorUPIID as-is
+          void 0;
+        }
+      }
       this.gpayLink = `gpay://upi/pay?pa=${this.validatorUPIID}&pn=${paying}&tr=${this.receiptId}&tn=${this.receiptId}&am=${this.amount}&cu=INR`;
       this.paytmLink = `paytmmp://pay?pa=${this.validatorUPIID}&pn=${paying}&tr=${this.receiptId}&tn=${this.receiptId}&am=${this.amount}&cu=INR`;
       this.phonepeLink = `phonepe://pay?pa=${this.validatorUPIID}&pn=${paying}&tr=${this.receiptId}&tn=${this.receiptId}&am=${this.amount}&cu=INR`;
@@ -1100,17 +1186,19 @@ export default {
       try {
         const response = await http.get(url, { params: data });
         if (response.status == 200) {
-          this.isEndToPay = response.data.is_end_to_end;
-          this.is_utr_enabled = response.data.is_utr_enabled;
-          this.isPayNow = response.data.isPayNow;
-          this.showForm = true;
-          this.vendorName = response.data.vendor;
-          this.paymentMethod = response.data.paymentMethod;
-          if (this.paymentMethod === "Manual Bank") {
-            this.socket.on(`${this.vendorName}-order-approved-${this.id}`, (data) => {
-              this.checkOrderStatus(data);
-            });
-          } else if (this.paymentMethod === "Automatic Payment") {
+      this.isEndToPay = response.data.is_end_to_end;
+      this.is_utr_enabled = response.data.is_utr_enabled;
+      this.isPayNow = response.data.isPayNow;
+      this.showForm = true;
+      this.vendorName = response.data.vendor;
+      this.paymentMethod = response.data.paymentMethod;
+      // Build QR using server-sent identifiers (payeeUPIID/clientName/receiptId)
+      this.generateUpiQrCodeString(response.data);
+      if (this.paymentMethod === "Manual Bank") {
+        this.socket.on(`${this.vendorName}-order-approved-${this.id}`, (data) => {
+          this.checkOrderStatus(data);
+        });
+      } else if (this.paymentMethod === "Automatic Payment") {
 
             if (response.data.paymentStatus != 'pending') {
               this.checkAutoOrderStatus(

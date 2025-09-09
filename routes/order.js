@@ -11,6 +11,12 @@ const upload = multer({ storage: storage });
 const checkAuth = require("../helpers/middleware/checkAuth");
 const isAdmin = require("../helpers/middleware/isAdmin");
 const validateHash = require("../helpers/middleware/validateHash");
+const listInstantPayoutAvailable = require("../controllers/orders/listInstantPayoutAvailable");
+const createPayinAgainstPayout = require("../controllers/orders/createPayinAgainstPayout");
+const getInstantPayoutChat = require("../controllers/orders/getInstantPayoutChat");
+const postInstantPayoutChat = require("../controllers/orders/postInstantPayoutChat");
+const uploadChatAttachment = require("../controllers/orders/uploadChatAttachment");
+const claimInstantPayout = require("../controllers/orders/claimInstantPayout");
 const getOrders = require("../controllers/orders/getOrders");
 const getStatus = require("../controllers/orders/getStatus");
 const getStatusInstantPayOut = require("../controllers/orders/getStatusInstantPay");
@@ -85,6 +91,21 @@ router.post("/:refID/unableToPay", unableToPay, callbackHook);
 router.post("/:refID/upload-screenshot", upload.single("upload_screenshot"), uploadScreenshot);
 router.post("/:refID/autoApproval", autoApproval, updateCommission, autoCallbackHook);
 router.post("/:refID/refreshToken", refreshToken);
+
+// API2: cross-vendor instant payout marketplace
+router.get("/instant-payout/available", validateHash, listInstantPayoutAvailable);
+router.post("/instant-payout/:refID/create-payin", validateHash, createPayinAgainstPayout);
+router.get("/:refID/chat", validateHash, getInstantPayoutChat);
+router.post("/:refID/chat", validateHash, postInstantPayoutChat);
+// Public chat endpoints for browser clients (no validateHash)
+router.get("/:refID/chat-public", getInstantPayoutChat);
+router.post("/:refID/chat-public", postInstantPayoutChat);
+router.post(
+  "/:refID/chat-attachment",
+  upload.single("upload_screenshot"),
+  uploadChatAttachment
+);
+router.get("/instant-payout/:refID/claim", claimInstantPayout);
 
 router.get("/getOrderStatics/:type", checkAuth, getOrderStatics);
 router.get("/getBarChartData/:type", checkAuth, getBarChartData);

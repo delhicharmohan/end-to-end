@@ -27,6 +27,9 @@ const PayOut = defineAsyncComponent(() => import('./pages/payout/index.vue'));
 const InstantPayOut = defineAsyncComponent(() =>
   import('./pages/instant-payout/index.vue')
 );
+const InstantPayoutMarket = defineAsyncComponent(() =>
+  import('./pages/InstantPayoutAvailable.vue')
+);
 const Users = defineAsyncComponent(() => import('./pages/users/index.vue'));
 const SubAdmin = defineAsyncComponent(() =>
   import('./pages/sub-admin/index.vue')
@@ -110,6 +113,15 @@ const router = createRouter({
       path: '/instant-payout',
       name: 'Instant Pay Out',
       component: InstantPayOut,
+      meta: {
+        requiresAuth: true,
+        layout: 'dashboard'
+      }
+    },
+    {
+      path: '/instant-payout-market',
+      name: 'Instant Payout Market',
+      component: InstantPayoutMarket,
       meta: {
         requiresAuth: true,
         layout: 'dashboard'

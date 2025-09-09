@@ -1,6 +1,7 @@
 const poolPromise = require("../../db");
 const logger = require("../../logger");
 const request = require("request");
+const { resolveCallbackURL } = require("../utils/callbackHandler");
 
 function postAsync(options) {
   return new Promise((resolve, reject) => {
@@ -17,25 +18,8 @@ function postAsync(options) {
 async function autoCallbackHook(req, res) {
   if (req.order.transactionType == 'auto') {
     try {
-      const pool = await poolPromise;
-
-      // Fetch callbackURL from secrets table and send a POST request with the following fields: type, amount, orderId, status
-      const [secrets] = await pool.query(
-        "SELECT * FROM secrets WHERE clientName = ?",
-        [req.order.clientName]
-      );
-
-      if (!secrets.length) {
-        logger.error(
-          `Invalid clientName. Attempted clientName: '${req.order.clientName}'`
-        );
-        return res.status(201).json({
-          status: false,
-          message: `Invalid clientName. Attempted clientName: '${req.order.clientName}'`
-        });
-      }
-
-      const callbackURL = secrets[0].callbackURL;
+      // Resolve per-order callback URL if present, otherwise fallback to secrets
+      const callbackURL = await resolveCallbackURL(req.order);
 
       // Send a POST request to callbackURL using the request library (async version)
       const { response, body } = await postAsync({
@@ -59,11 +43,11 @@ async function autoCallbackHook(req, res) {
       });
     } catch (error) {
       logger.error(
-        `An error occurred while trying to fetch callbackURL. Order ID: ${req.order.merchantOrderId}`
+        `An error occurred while trying to send callback. Order ID: ${req.order.merchantOrderId}`
       );
       return res.status(201).json({
         status: false,
-        message: `An error occurred while trying to fetch callbackURL. Order ID: ${req.order.merchantOrderId}`,
+        message: `An error occurred while trying to send callback. Order ID: ${req.order.merchantOrderId}`,
       });
     }
   } else {

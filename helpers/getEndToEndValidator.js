@@ -81,16 +81,26 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
   const [exactOrders] = await pool.query(exactQuery, exactQueryParams);
   console.log(`Found ${exactOrders.length} suitable matches for amount: ${amount}`);
 
+  // Pass 1: prefer active users
   for (let order of exactOrders) {
     let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
     let isActiveUser = await isUserActive(order);
-    
     console.log(`Order ${order.id}: instant_balance=${order.instant_balance}, required=${amount}, duplicate=${duplicateFound}, active=${isActiveUser}`);
-    
     if (!duplicateFound && isActiveUser) {
       foundOrder = order;
-      console.log(`Selected suitable match order: ${order.id} with balance: ${order.instant_balance}`);
+      console.log(`Selected suitable ACTIVE match order: ${order.id} with balance: ${order.instant_balance}`);
       break;
+    }
+  }
+  // Pass 2: if none active found, allow inactive
+  if (!foundOrder) {
+    for (let order of exactOrders) {
+      let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
+      if (!duplicateFound) {
+        foundOrder = order;
+        console.log(`Selected INACTIVE fallback order: ${order.id} with balance: ${order.instant_balance}`);
+        break;
+      }
     }
   }
 
@@ -140,24 +150,32 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
 
       if (orders.length === 0) break; // Exit if no orders are found
 
+      // Pass 1: prefer active users
       for (let order of orders) {
-        // check if the user has reached more than 3 batches if the user is got 3 orders and order not matching will assign to the next user
         let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
         let isActiveUser = await isUserActive(order);
-
         console.log(`Order ${order.id}: amount=${order.instant_balance}, splits=${order.current_payout_splits}, duplicate=${duplicateFound}, active=${isActiveUser}`);
-
-        if (order.current_payout_splits == 4) {
-          // check for the balance
-          if (isAssignableToNewUser) {
-            continue;
-          }
+        if (order.current_payout_splits == 4 && isAssignableToNewUser) {
+          continue;
         }
-
         if (!duplicateFound && isActiveUser) {
           foundOrder = order;
-          console.log(`Selected flexible match order: ${order.id} with amount: ${order.instant_balance}`);
+          console.log(`Selected FLEXIBLE ACTIVE match order: ${order.id} with amount: ${order.instant_balance}`);
           break;
+        }
+      }
+      // Pass 2: if none active found, allow inactive
+      if (!foundOrder) {
+        for (let order of orders) {
+          let duplicateFound = await checkNoDuplicatePaymentInThisVerifier(order, customerMobile);
+          if (order.current_payout_splits == 4 && isAssignableToNewUser) {
+            continue;
+          }
+          if (!duplicateFound) {
+            foundOrder = order;
+            console.log(`Selected FLEXIBLE INACTIVE fallback order: ${order.id} with amount: ${order.instant_balance}`);
+            break;
+          }
         }
       }
       offset += limit; // Increase offset for the next batch

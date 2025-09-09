@@ -1,0 +1,16 @@
+{
+  "type": "payout",
+  "payoutType": "instant",
+  "amount": 400.0,
+  "accountNumber": "1234567890",
+  "ifsc": "HDFC0000001",
+  "bankName": "HDFC Bank",
+  "mode": "IMPS",
+  "merchantOrderID": "TEST-INSTANT-PAYOUT-400-001",
+  "returnUrl": "https://example.com/return",
+  "callback": "https://webhook.site/1d555f13-8394-497d-967c-dafdd1a8e8eb",
+  "customerName": "Instant Payout User",
+  "customerIp": "127.0.0.1",
+  "customerMobile": "7777777777",
+  "customerUPIID": "payer3@upi"
+}
