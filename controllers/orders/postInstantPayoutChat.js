@@ -21,85 +21,128 @@ module.exports = async function postInstantPayoutChat(req, res) {
 
     const pool = await poolPromise;
 
-    // Resolve payout order: accept either payout refID or payin refID
-    let payoutOrder = null;
-    let payoutRefID = null;
+    // Resolve order: accept either payout refID or payin refID
+    let targetOrder = null;
+    let chatRefID = null;
+    let orderType = null;
 
-    // Try direct payout refID
+    // Try direct payout refID first
     const [payoutRows] = await pool.query(
       "SELECT * FROM orders WHERE refID = ? AND type = 'payout'",
       [refID]
     );
     if (payoutRows.length) {
-      payoutOrder = payoutRows[0];
-      payoutRefID = payoutOrder.refID;
+      targetOrder = payoutRows[0];
+      chatRefID = targetOrder.refID;
+      orderType = 'payout';
     } else {
-      // Try interpreting refID as a payin refID and map to its payout via latest batch
+      // Try interpreting refID as a payin refID
       const [payinRows] = await pool.query(
         "SELECT * FROM orders WHERE refID = ? AND type = 'payin'",
         [refID]
       );
-      if (!payinRows.length) {
-        return res.status(404).json({ success: false, message: "Order not found for chat" });
-      }
-      const payinOrder = payinRows[0];
-      const [batchLink] = await pool.query(
-        `SELECT o.* FROM instant_payout_batches b JOIN orders o ON o.id = b.order_id
-         WHERE b.pay_in_order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
-        [payinOrder.id]
-      );
-      if (batchLink.length) {
-        payoutOrder = batchLink[0];
-        payoutRefID = payoutOrder.refID;
+      if (payinRows.length) {
+        const payinOrder = payinRows[0];
+        // For payin orders, find the linked payout via batch
+        const [batchLink] = await pool.query(
+          `SELECT o.* FROM instant_payout_batches b JOIN orders o ON o.id = b.order_id
+           WHERE b.pay_in_order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
+          [payinOrder.id]
+        );
+        if (batchLink.length) {
+          // Use the payout order as the primary chat reference
+          targetOrder = batchLink[0];
+          chatRefID = targetOrder.refID;
+          orderType = 'payout';
+        } else {
+          // No linked payout yet: use payin order but store under its own refID
+          targetOrder = payinOrder;
+          chatRefID = payinOrder.refID;
+          orderType = 'payin';
+        }
       } else {
-        // No linked payout yet: allow pre-match chat by storing refID-only thread
-        payoutOrder = null; // indicates pre-link chat
-        payoutRefID = refID; // keep chat scoped to provided refID
+        return res.status(404).json({ success: false, message: "Order not found for chat" });
       }
     }
 
-    // Persist message
-    logger.info(`[chat] inserting message for ref=${payoutRefID} order_id=${payoutOrder ? payoutOrder.id : null}`);
+    // Persist message with proper order reference
+    logger.info(`[chat] inserting message for ref=${chatRefID} order_id=${targetOrder.id} type=${orderType}`);
     await pool.query(
       `INSERT INTO instant_payout_chats (order_id, ref_id, sender_type, sender_vendor, message)
        VALUES (?, ?, ?, ?, ?)`,
-      [payoutOrder ? payoutOrder.id : null, payoutRefID, senderType, senderVendor, message]
+      [targetOrder.id, chatRefID, senderType, senderVendor, message]
     );
 
-    // Broadcast to room
+    // Broadcast to room - emit to both payin and payout rooms for cross-page visibility
     try {
       const io = getIO();
-      io.to(`payin:${payoutRefID}`).emit("chat:message", { refID: payoutRefID, senderType, message, ts: Date.now(), nonce: clientNonce || null });
-      logger.info(`[chat] emitted socket chat:message to room payin:${payoutRefID}`);
+      const messagePayload = { refID: chatRefID, senderType, message, ts: Date.now(), nonce: clientNonce || null };
+      
+      // Always emit to the primary chat room
+      io.to(`payin:${chatRefID}`).emit("chat:message", messagePayload);
+      logger.info(`[chat] emitted socket chat:message to room payin:${chatRefID}`);
+      
+      // If this is a payout order, also emit to any linked payin rooms
+      if (orderType === 'payout') {
+        const [linkedPayins] = await pool.query(
+          `SELECT o.refID FROM instant_payout_batches b JOIN orders o ON o.id = b.pay_in_order_id
+           WHERE b.order_id = ?`,
+          [targetOrder.id]
+        );
+        linkedPayins.forEach(payin => {
+          io.to(`payin:${payin.refID}`).emit("chat:message", messagePayload);
+          logger.info(`[chat] emitted socket chat:message to linked payin room payin:${payin.refID}`);
+        });
+      }
     } catch (e) {
       logger.warn(`[postInstantPayoutChat] socket emit failed: ${e?.message}`);
     }
 
-    // Webhooks to payout and linked payin callbacks
+    // Webhooks to relevant order callbacks
     try {
-      const payoutCallbackURL = await resolveCallbackURL(payoutOrder);
-      if (payoutCallbackURL) {
+      const targetCallbackURL = await resolveCallbackURL(targetOrder);
+      if (targetCallbackURL) {
         sendGenericCallback({
-          ...payoutOrder,
+          ...targetOrder,
           event: 'chat_message',
-          payload: { refID, senderType, senderVendor, message }
-        }, payoutCallbackURL, { event: 'chat_message', refID, senderType, senderVendor, message });
+          payload: { refID: chatRefID, senderType, senderVendor, message }
+        }, targetCallbackURL, { event: 'chat_message', refID: chatRefID, senderType, senderVendor, message });
       }
-      // find linked payin via batches (most recent pending)
-      const [linkedPayin] = await pool.query(
-        `SELECT o.* FROM instant_payout_batches b JOIN orders o ON o.id = b.pay_in_order_id
-         WHERE b.order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
-        [payoutOrder.id]
-      );
-      if (linkedPayin.length) {
-        const payinOrder = linkedPayin[0];
-        const payinCallbackURL = await resolveCallbackURL(payinOrder);
-        if (payinCallbackURL) {
-          sendGenericCallback({
-            ...payinOrder,
-            event: 'chat_message',
-            payload: { refID, senderType, senderVendor, message }
-          }, payinCallbackURL, { event: 'chat_message', refID, senderType, senderVendor, message });
+      
+      // If this is a payout order, also send webhooks to linked payin orders
+      if (orderType === 'payout') {
+        const [linkedPayins] = await pool.query(
+          `SELECT o.* FROM instant_payout_batches b JOIN orders o ON o.id = b.pay_in_order_id
+           WHERE b.order_id = ?`,
+          [targetOrder.id]
+        );
+        for (const payinOrder of linkedPayins) {
+          const payinCallbackURL = await resolveCallbackURL(payinOrder);
+          if (payinCallbackURL) {
+            sendGenericCallback({
+              ...payinOrder,
+              event: 'chat_message',
+              payload: { refID: chatRefID, senderType, senderVendor, message }
+            }, payinCallbackURL, { event: 'chat_message', refID: chatRefID, senderType, senderVendor, message });
+          }
+        }
+      } else if (orderType === 'payin') {
+        // If this is a payin order, send webhook to linked payout if exists
+        const [linkedPayout] = await pool.query(
+          `SELECT o.* FROM instant_payout_batches b JOIN orders o ON o.id = b.order_id
+           WHERE b.pay_in_order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
+          [targetOrder.id]
+        );
+        if (linkedPayout.length) {
+          const payoutOrder = linkedPayout[0];
+          const payoutCallbackURL = await resolveCallbackURL(payoutOrder);
+          if (payoutCallbackURL) {
+            sendGenericCallback({
+              ...payoutOrder,
+              event: 'chat_message',
+              payload: { refID: chatRefID, senderType, senderVendor, message }
+            }, payoutCallbackURL, { event: 'chat_message', refID: chatRefID, senderType, senderVendor, message });
+          }
         }
       }
     } catch (whErr) {

@@ -1,12 +1,18 @@
 <template>
   <div class="chat-window" :class="{ 'open-full': isOpen && isMobile }" v-show="isOpen || !hideWhenClosed">
     <div class="chat-header" @click="toggleChat">
-      <div class="flex items-center">
+      <div class="flex items-center relative">
         <span class="font-medium">Chat Support</span>
         <span class="ml-2 text-sm">({{ unreadCount > 0 ? unreadCount + ' new' : 'Online' }})</span>
+        <!-- Red dot notification indicator -->
+        <div v-if="unreadCount > 0 && !isOpen" class="notification-dot" :title="`${unreadCount} unread messages`"></div>
       </div>
       <button class="chat-toggle">
         {{ isOpen ? '−' : '+' }}
+      </button>
+      <!-- Temporary test button for notification -->
+      <button @click="simulateMessage" class="test-notification-btn" title="Test notification">
+        🔴
       </button>
     </div>
     
@@ -163,6 +169,7 @@ export default {
       emit('open-changed', isOpen.value);
       if (isOpen.value) {
         unreadCount.value = 0;
+        emit('unread-count-changed', 0);
         scrollToBottom();
       }
     };
@@ -177,11 +184,15 @@ export default {
 
       try {
         const clientNonce = `${props.userType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.log(`[ChatWindow] Sending message for order ${props.orderId}:`, outgoing);
+        
         await http.post(`/orders/${props.orderId}/chat-public`, {
           message: outgoing,
           senderType: props.userType,
           clientNonce
         });
+        
+        // Add message optimistically to UI
         messages.value.push({
           text: outgoing,
           sender: 'user',
@@ -189,8 +200,10 @@ export default {
         });
         newMessage.value = '';
         scrollToBottom();
+        console.log(`[ChatWindow] Message sent successfully`);
       } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('[ChatWindow] Error sending message:', error);
+        // TODO: Show error message to user
       } finally {
         sending.value = false;
       }
@@ -218,6 +231,7 @@ export default {
           timestamp: msg.created_at,
           sender: (msg.sender_type === props.userType) ? 'user' : 'other'
         }));
+        console.log(`[ChatWindow] Loaded ${rows.length} chat messages for order ${props.orderId}`);
         scrollToBottom();
       } catch (error) {
         console.error('Error fetching chat history:', error);
@@ -228,9 +242,11 @@ export default {
       socket = io(process.env.VUE_APP_SOCKET_URL || window.location.origin, { path: '/wizpay-socket-path' });
       
       socket.on('connect', () => {
-        console.log('Connected to socket server');
+        console.log(`[ChatWindow] Connected to socket server for order ${props.orderId}`);
+        // Join the payin room for this order (works for both payin and payout orders)
         socket.emit('join-payin-room', { refID: props.orderId });
         socket.emit('chat:join', { refID: props.orderId });
+        console.log(`[ChatWindow] Joined chat room for order ${props.orderId}`);
       });
 
       // Remove any previous listener before adding
@@ -240,14 +256,20 @@ export default {
       let lastSig = null;
 
       socket.on('chat:message', (payload) => {
+        console.log(`[ChatWindow] Received chat message:`, payload);
         const isFromOtherUser = payload.senderType !== props.userType;
+        
         // Ignore echo of own message to prevent duplicates; we already push optimistically on send
-        if (!isFromOtherUser) return;
+        if (!isFromOtherUser) {
+          console.log(`[ChatWindow] Ignoring echo message from same user type: ${payload.senderType}`);
+          return;
+        }
 
         // De-duplicate by signature (message + sender + second-resolution ts)
         const tsSec = payload.ts ? Math.floor(Number(payload.ts) / 1000) : Math.floor(Date.now() / 1000);
         const sig = `${payload.senderType}|${payload.message}|${tsSec}`;
         if (sig === lastSig) {
+          console.log(`[ChatWindow] Ignoring duplicate message with signature: ${sig}`);
           return;
         }
         lastSig = sig;
@@ -260,13 +282,15 @@ export default {
         
         if (!isOpen.value && isFromOtherUser) {
           unreadCount.value++;
+          emit('unread-count-changed', unreadCount.value);
+          console.log(`[ChatWindow] Incremented unread count to ${unreadCount.value} - notification should appear`);
         } else {
           scrollToBottom();
         }
       });
 
       socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('[ChatWindow] Socket connection error:', error);
       });
     };
 
@@ -292,6 +316,29 @@ export default {
       scrollToBottom();
     });
 
+    const simulateMessage = (event) => {
+      event.stopPropagation(); // Prevent chat toggle
+      
+      // Close chat first if it's open
+      if (isOpen.value) {
+        isOpen.value = false;
+        emit('open-changed', false);
+      }
+      
+      // Add a test message
+      messages.value.push({
+        text: 'Test notification message',
+        timestamp: new Date().toISOString(),
+        sender: 'other'
+      });
+      
+      // Increment unread count to trigger notification
+      unreadCount.value++;
+      emit('unread-count-changed', unreadCount.value);
+      console.log(`[ChatWindow] Simulated message - unreadCount: ${unreadCount.value}, isOpen: ${isOpen.value}`);
+    };
+
+
     return {
       isOpen,
       newMessage,
@@ -306,7 +353,8 @@ export default {
       onPickAttachment,
       onAttachmentSelected,
       isImageUrl,
-      isMobile
+      isMobile,
+      simulateMessage
     };
   }
 };
@@ -491,5 +539,54 @@ export default {
 
 .messages-container::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
+}
+
+/* Red dot notification indicator */
+.notification-dot {
+  position: absolute;
+  top: -8px;
+  right: -12px;
+  width: 16px;
+  height: 16px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 3px solid white;
+  z-index: 10000;
+  animation: pulse-notification 1.5s infinite;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse-notification {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.9;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Test notification button */
+.test-notification-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 8px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.test-notification-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 </style>

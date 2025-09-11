@@ -188,6 +188,49 @@ function handleConnection(socket) {
     socket.join(`payin:${refID}`);
   });
 
+  // Handle payee connection notification
+  socket.on("payee-connected", async ({ refID, userType, timestamp }) => {
+    try {
+      if (!refID || !userType) return;
+      
+      console.log(`[Socket] Payee connected notification for refID: ${refID}, userType: ${userType}`);
+      
+      const pool = await poolPromise;
+      
+      // Find the linked payout order for this payin refID
+      let targetRefID = refID;
+      const [payinRows] = await pool.query(
+        "SELECT id, refID FROM orders WHERE refID = ? AND type = 'payin'",
+        [refID]
+      );
+      
+      if (payinRows.length) {
+        const payin = payinRows[0];
+        const [linked] = await pool.query(
+          `SELECT o.refID FROM instant_payout_batches b JOIN orders o ON o.id = b.order_id
+           WHERE b.pay_in_order_id = ? ORDER BY b.created_at DESC LIMIT 1`,
+          [payin.id]
+        );
+        if (linked.length) {
+          targetRefID = linked[0].refID;
+        }
+      }
+      
+      // Broadcast to the payout room (withdrawal page)
+      io.to(`payin:${targetRefID}`).emit('payee-connected', {
+        refID: targetRefID,
+        userType,
+        timestamp,
+        originalRefID: refID
+      });
+      
+      console.log(`[Socket] Broadcasted payee-connected to room payin:${targetRefID}`);
+      
+    } catch (e) {
+      logger.warn(`[socket] payee-connected failed: ${e?.message}`);
+    }
+  });
+
   // Chat message persist + broadcast
   socket.on("chat:message", async ({ refID, senderType, senderVendor, message }) => {
     try {

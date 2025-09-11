@@ -186,60 +186,78 @@ const router = createRouter({
       path: '/instant-withdraw/:id',
       name: 'Withdraw',
       component: InstantWithdraw,
-      layout: 'blank',
+      meta: {
+        layout: 'blank'
+      },
       props: route => ({ id: route.params.id || '' })
     },
     {
       path: '/instant-withdraw/success',
       name: 'Withdrawal Success',
       component: WithdrawalSuccess,
-      layout: 'blank'
+      meta: {
+        layout: 'blank'
+      }
     },
     {
       path: '/pay/:id',
       name: 'Pay',
       component: Pay,
-      layout: 'blank',
+      meta: {
+        layout: 'blank'
+      },
       props: route => ({ id: route.params.id || '' })
     },
     {
       path: '/create-payin/:refID',
       name: 'Create Pay In',
       component: CreatePayIn,
-      layout: 'blank',
+      meta: {
+        layout: 'blank'
+      },
       props: route => ({ refID: route.params.refID || '' })
     },
     {
       path: '/create-payout/:refID',
       name: 'Create Pay Out',
       component: CreatePayOut,
-      layout: 'blank',
+      meta: {
+        layout: 'blank'
+      },
       props: route => ({ refID: route.params.refID || '' })
     },
     {
       path: '/deposit/:vendor',
       name: 'Deposit',
       component: Deposit,
-      layout: 'blank',
+      meta: {
+        layout: 'blank'
+      },
       props: route => ({ vendor: route.params.vendor || '' })
     },
     {
       path: '/success',
       name: 'Success',
       component: Success,
-      layout: 'blank'
+      meta: {
+        layout: 'blank'
+      }
     },
     {
       path: '/pending',
       name: 'Pending',
       component: Pending,
-      layout: 'blank'
+      meta: {
+        layout: 'blank'
+      }
     },
     {
       path: '/failed',
       name: 'Failed',
       component: Failed,
-      layout: 'blank'
+      meta: {
+        layout: 'blank'
+      }
     },
     {
       path: '/clients',

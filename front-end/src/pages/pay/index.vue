@@ -5,10 +5,12 @@
       v-if="orderId"
       ref="chatWindow"
       :order-id="orderId"
-      :user-id="userId"
-      user-type="payer"
-      :initial-messages="initialMessages"
+      :user-id="null"
+      :user-type="'payer'"
+      :initial-messages="[]"
+      :expires-at="null"
       :hide-when-closed="true"
+      @unread-count-changed="onChatUnreadCountChanged"
       class="fixed bottom-4 right-4 z-40"
     />
     <base-page-spinner v-if="showTransactionBar"></base-page-spinner>
@@ -65,12 +67,14 @@
             <button
               v-if="orderId"
               @click.stop="openChatPanel"
-              class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 relative"
               title="Chat support"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M21 15a4 4 0 01-4 4H8l-5 3v-3a4 4 0 01-4-4V7a4 4 0 014-4h14a4 4 0 014 4v8z"/>
               </svg>
+              <!-- Red notification dot -->
+              <div v-if="chatUnreadCount > 0" class="chat-notification-dot"></div>
             </button>
           </div>
           <div class="text-2xl font-bold" :class="isHighAmount ? 'text-blue-600' : ''">Rs. {{ amount }}/-</div>
@@ -717,7 +721,8 @@ export default {
       },
       formIsValid: true,
       isUpiIdSubmitted: false,
-      countDownLimit: 600000,
+      countDownLimit: 1000 * 60 * 60, // 60 minutes
+      expiresAt: null,
       intervalId: null,
       confettiActive: true,
       qrCodeText: "",
@@ -768,6 +773,7 @@ export default {
       videoModalTitle: "",
       videoModalUrl: "",
       selectedButton: "",
+      chatUnreadCount: 0,
       uploadScreenshot: {
         val: null,
         isValid: true,
@@ -827,7 +833,7 @@ export default {
       if (newVal > 2000) {
         this.isHighAmount = true;
         this.showQr = false;
-        this.countDownLimit = 600000;
+        this.countDownLimit = 1000 * 60 * 60; // 60 minutes
       }
     },
   },
@@ -849,6 +855,7 @@ export default {
   },
   created() {
     this.skipUpdateCustomerUpiId();
+    this.calculateTimerFromDatabase();
     this.socket = io(process.env.VUE_APP_SOCKET_URL, {
       path: "/wizpay-socket-path",
     });
@@ -869,6 +876,13 @@ export default {
       if (this.orderId) {
         this.socket.emit('join-payin-room', { refID: this.orderId });
         this.socket.emit('chat:join', { refID: this.orderId });
+        // Notify withdrawal page that payee has connected
+        this.socket.emit('payee-connected', { 
+          refID: this.orderId, 
+          userType: 'payer',
+          timestamp: Date.now()
+        });
+        console.log(`[PayPage] Notified withdrawal page of payee connection for order ${this.orderId}`);
       }
     });
 
@@ -893,6 +907,10 @@ export default {
       if (this.$refs.chatWindow && this.$refs.chatWindow.openChat) {
         this.$refs.chatWindow.openChat();
       }
+    },
+    onChatUnreadCountChanged(count) {
+      this.chatUnreadCount = count;
+      console.log(`[Pay Page] Chat unread count changed to: ${count}`);
     },
     // Load chat history when order is loaded
     async loadChatHistory() {
@@ -1369,7 +1387,7 @@ export default {
     upiClicked() {
       if (!this.showUtr) {
         this.showUtr = true;
-        this.countDownLimit = 600000 * 15;
+        this.countDownLimit = 1000 * 60 * 60; // 60 minutes
       }
     },
     openTicketForm() {
@@ -1479,6 +1497,32 @@ export default {
       this.videoModalTitle = "";
       this.videoModalUrl = "";
     },
+    async calculateTimerFromDatabase() {
+      try {
+        const response = await http.get(`/orders/${this.id}`);
+        if (response.data && response.data.expires_at) {
+          this.expiresAt = new Date(response.data.expires_at).getTime();
+          this.updateCountdownFromExpiry();
+        } else {
+          // If no expires_at, set 60 minutes from now
+          this.expiresAt = Date.now() + (60 * 60 * 1000);
+          this.updateCountdownFromExpiry();
+        }
+      } catch (error) {
+        console.error('Error loading order expiry:', error);
+        // Fallback to 60 minutes
+        this.expiresAt = Date.now() + (60 * 60 * 1000);
+        this.updateCountdownFromExpiry();
+      }
+    },
+    updateCountdownFromExpiry() {
+      if (this.expiresAt) {
+        const now = Date.now();
+        const remaining = this.expiresAt - now;
+        this.countDownLimit = Math.max(0, remaining);
+        console.log(`[PayPage] Timer updated from database: ${Math.floor(remaining / 1000)}s remaining`);
+      }
+    },
   },
   beforeUnmount() {
     if (this.socket) {
@@ -1553,5 +1597,38 @@ export default {
 
 .ht-34 {
   height: 34px;
+}
+
+/* Chat notification dot on icon */
+.chat-notification-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 2px solid white;
+  z-index: 10;
+  animation: pulse-chat-notification 1.5s infinite;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse-chat-notification {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  }
 }
 </style>

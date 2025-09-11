@@ -8,6 +8,7 @@
     user-type="payee"
     :initial-messages="initialMessages"
     :hide-when-closed="true"
+    @unread-count-changed="onChatUnreadCountChanged"
     class="fixed bottom-4 right-4 z-40"
   />
   
@@ -48,6 +49,20 @@
           </svg>
         </span>
         <span class="text font-medium">{{ message }}</span>
+      </div>
+    </div>
+
+    <!-- Payee Connection Notification -->
+    <div class="payee-notification fixed z-50 top-20 right-4 transform transition-all duration-300 ease-out" 
+         v-if="showPayeeNotification"
+         :class="showPayeeNotification ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'">
+      <div class="flex items-center bg-blue-600 text-white rounded-xl p-4 shadow-2xl border border-blue-700">
+        <span class="icon mr-3">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+          </svg>
+        </span>
+        <span class="text font-medium">Payee connected! You can now chat for assistance.</span>
       </div>
     </div>
 
@@ -102,7 +117,7 @@
             <!-- Progress Text -->
             <div class="absolute text-center">
               <p class="text-4xl font-bold text-white drop-shadow-lg"> {{ completedPercentage.toFixed(0) }} %</p>
-              <p class="text-sm text-blue-100 font-medium">Completed</p>
+              <p class="text-sm text-blue-100 font-medium">{{ payeeConnected ? 'Processing' : 'Completed' }}</p>
             </div>
           </div>
 
@@ -151,12 +166,14 @@
               <button
                 v-if="orderId"
                 @click.stop="openChatPanel"
-                class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-white"
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-500 text-white hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-white relative"
                 title="Chat support"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M21 15a4 4 0 01-4 4H8l-5 3v-3a4 4 0 01-4-4V7a4 4 0 014-4h14a4 4 0 014 4v8z"/>
                 </svg>
+                <!-- Red notification dot -->
+                <div v-if="chatUnreadCount > 0" class="chat-notification-dot"></div>
               </button>
             </h2>
 
@@ -305,6 +322,7 @@ export default {
       orderId: null,
       userId: 'user_' + Math.random().toString(36).substr(2, 9), // Generate a unique user ID
       initialMessages: [],
+      chatUnreadCount: 0,
       isExpiateToAdmin: false,
       timezone: process.env.VUE_APP_TIMEZONE,
       instantPayoutExpiryTime: null,
@@ -324,7 +342,7 @@ export default {
       balance: 0.0,
       pendingList: [],
       orderData: null,
-      countDownLimit: 1000 * 60 * 15,
+      countDownLimit: 1000 * 60 * 60, // 60 minutes
       //checkingTimerLimit: 5000,
       checkingTimerLimit: 1000 * 30, // Reduced from 10 minutes to 30 seconds for faster matching
       isLoading: true,
@@ -338,6 +356,9 @@ export default {
       isCountingDown: false,
       amount: 0.0,
       isCompleted: false,
+      showPayeeNotification: false,
+      payeeConnected: false,
+      expiresAt: null,
     };
   },
   watch: {
@@ -384,6 +405,14 @@ export default {
       }
     });
 
+    // Listen for payee connection notifications
+    this.socket.on('payee-connected', (payload) => {
+      console.log('[WithdrawPage] Received payee connection notification:', payload);
+      if (payload.refID === this.orderId && payload.userType === 'payer') {
+        this.showPayeeConnectedNotification();
+      }
+    });
+
     // Listen for user count updates
     this.socket.on("userCountUpdate", (count) => {
       console.log(`Current users in room: ${count}`);
@@ -391,12 +420,17 @@ export default {
 
     // Initial load
     this.loadPayOutOrder();
+    // Timer will be set by loadPayOutOrder response
   },
   methods: {
     openChatPanel() {
       if (this.$refs.chatWindow && this.$refs.chatWindow.openChat) {
         this.$refs.chatWindow.openChat();
       }
+    },
+    onChatUnreadCountChanged(count) {
+      this.chatUnreadCount = count;
+      console.log(`[Withdrawal Page] Chat unread count changed to: ${count}`);
     },
     // Load chat history when order is loaded
     async loadChatHistory() {
@@ -453,8 +487,8 @@ export default {
 
           let timeZoneTemp = process.env.VUE_APP_TIMEZONE;
           if (response.data.data.instant_payout_expiry_at != null) {
-            this.instantPayoutExpiryTime = moment.tz(response.data.data.instant_payout_expiry_at, timeZoneTemp).valueOf();
-            this.reCalculateCountDownTime();
+            this.expiresAt = moment.tz(response.data.data.instant_payout_expiry_at, timeZoneTemp).valueOf();
+            this.updateCountdownFromExpiry();
           }
           if (response.data.data.customerUPIID == undefined || response.data.data.customerUPIID == '') {
             this.customerUPIID = false;
@@ -515,8 +549,8 @@ export default {
         this.showAlertMessage();
 
         if (data.instant_payout_expiry_at != null && data.is_payout_time_extended != null) {
-          this.instantPayoutExpiryTime = moment.tz(data.instant_payout_expiry_at, this.timezone).valueOf();
-          this.reCalculateCountDownTime();
+          this.expiresAt = moment.tz(data.instant_payout_expiry_at, this.timezone).valueOf();
+          this.updateCountdownFromExpiry();
         } else {
           console.log("else block!!1");
         }
@@ -777,6 +811,37 @@ export default {
       this.balanceProgress = 100 - this.completedPercentage;
       return this.balanceProgress;
     },
+    showPayeeConnectedNotification() {
+      this.showPayeeNotification = true;
+      this.payeeConnected = true;
+      this.message = 'Payee connected! You can now chat for assistance.';
+      this.showMessage();
+      console.log('[WithdrawPage] Showing payee connected notification');
+      
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => {
+        this.showPayeeNotification = false;
+      }, 5000);
+    },
+    async calculateTimerFromDatabase() {
+      try {
+        const response = await http.get(`/orders/${this.id}/instant-payout-status`);
+        if (response.data && response.data.data && response.data.data.instant_payout_expiry_at) {
+          this.expiresAt = new Date(response.data.data.instant_payout_expiry_at).getTime();
+          this.updateCountdownFromExpiry();
+        }
+      } catch (error) {
+        console.error('Error loading order expiry:', error);
+      }
+    },
+    updateCountdownFromExpiry() {
+      if (this.expiresAt) {
+        const now = Date.now();
+        const remaining = this.expiresAt - now;
+        this.countDownLimit = Math.max(0, remaining);
+        console.log(`[WithdrawPage] Timer updated from database: ${Math.floor(remaining / 1000)}s remaining`);
+      }
+    },
 
   },
   beforeUnmount() {
@@ -913,5 +978,38 @@ export default {
 
 .ht-34 {
   height: 34px;
+}
+
+/* Chat notification dot on icon */
+.chat-notification-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 2px solid white;
+  z-index: 10;
+  animation: pulse-chat-notification 1.5s infinite;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse-chat-notification {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  }
 }
 </style>

@@ -26,7 +26,7 @@ async function postAsync(options) {
 async function getStatusInstantPayOut(req, res, next) {
 
   const now = moment().tz(process.env.TIMEZONE);
-  const thirtyMinutesAfter = moment().tz(process.env.TIMEZONE).add(30, "minutes").format("YYYY-MM-DD HH:mm:ss");
+  const sixtyMinutesAfter = moment().tz(process.env.TIMEZONE).add(60, "minutes").format("YYYY-MM-DD HH:mm:ss");
 
 
   try {
@@ -61,7 +61,7 @@ async function getStatusInstantPayOut(req, res, next) {
 
         if(payoutOrder.instant_payout_expiry_at == null) {
           query += ", instant_payout_expiry_at = ?";
-          assignedValue.push(thirtyMinutesAfter);
+          assignedValue.push(sixtyMinutesAfter);
         }
 
         query += " WHERE refID= ?";

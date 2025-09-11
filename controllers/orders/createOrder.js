@@ -203,7 +203,9 @@ async function createOrder(req, res, next) {
       is_end_to_end: customerAsValidator ? true: false,
       ...isPayout && { accountNumber, ifsc, bankName, mode: "IMPS" },
       // Initialize instant balance for instant payouts so matching/claims work
-      ...(isPayout && isInstantPayout && { is_instant_payout: 1, instant_balance: amount, current_payout_splits: 0 })
+      ...(isPayout && isInstantPayout && { is_instant_payout: 1, instant_balance: amount, current_payout_splits: 0 }),
+      // Set expires_at for both payin and payout orders (60 minutes)
+      expires_at: moment(createdAt).add(60, 'minutes').format("YYYY-MM-DD HH:mm:ss")
     };
 
     const pool = await poolPromise;

@@ -110,7 +110,7 @@ module.exports = async function createPayinAgainstPayout(req, res) {
       website: '',
       createdAt,
       updatedAt: createdAt,
-      expires_at: moment(createdAt).add(1, 'hour').format("YYYY-MM-DD HH:mm:ss"),
+      expires_at: moment(createdAt).add(60, 'minutes').format("YYYY-MM-DD HH:mm:ss"),
       vendor,
       paymentMethod: 'UPI',
       uniqueIdentifier: '',
