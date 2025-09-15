@@ -1,0 +1,670 @@
+{
+  "info": {
+    "name": "WizPay End-to-End Pay - Vendor Integration",
+    "description": "Complete Postman collection for vendors to integrate with WizPay's end-to-end payin/payout system. This collection includes all necessary endpoints for order creation, instant payout marketplace, and batch processing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 2,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-generate HMAC hash for requests that need it",
+          "if (pm.request.headers.has('x-hash')) {",
+          "    const crypto = require('crypto-js');",
+          "    const secret = pm.environment.get('API_SECRET');",
+          "    const body = pm.request.body ? pm.request.body.raw : '';",
+          "    ",
+          "    if (secret && body) {",
+          "        const hash = crypto.HmacSHA256(body, secret).toString(crypto.enc.Base64);",
+          "        pm.request.headers.upsert({",
+          "            key: 'x-hash',",
+          "            value: hash",
+          "            disabled: false",
+          "        });",
+          "    }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Common test script for all requests",
+          "pm.test('Response time is less than 5000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Response has success field', function () {",
+          "    const jsonData = pm.response.json();",
+          "    pm.expect(jsonData).to.have.property('success');",
+          "});",
+          "",
+          "// Store refID for subsequent requests if present",
+          "if (pm.response.json() && pm.response.json().data && pm.response.json().data.refID) {",
+          "    pm.environment.set('LAST_REF_ID', pm.response.json().data.refID);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{base_url}}",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "{{api_key}}",
+      "type": "string"
+    },
+    {
+      "key": "api_secret",
+      "value": "{{api_secret}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Order Management",
+      "description": "Core order creation and management operations",
+      "item": [
+        {
+          "name": "Create Payin Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-hash",
+                "value": "{{x-hash}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"payin\",\n  \"amount\": 500,\n  \"customerMobile\": \"9876543210\",\n  \"customerUPIID\": \"customer@paytm\",\n  \"customerName\": \"John Doe\",\n  \"merchantOrderID\": \"MERCHANT_ORDER_123\",\n  \"idempotencyKey\": \"{{$timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": ["{{base_url}}"],
+              "path": ["orders"]
+            },
+            "description": "Create a new payin order. The system will automatically attempt to find matching payout orders for end-to-end processing."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Payin order created successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('refID');",
+                  "});",
+                  "",
+                  "pm.test('Response contains redirect URL if matched', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.data.matched) {",
+                  "        pm.expect(jsonData.data).to.have.property('redirectURL');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payout Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-hash",
+                "value": "{{x-hash}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"payout\",\n  \"payoutType\": \"instant\",\n  \"amount\": 1000,\n  \"accountNumber\": \"1234567890\",\n  \"ifsc\": \"SBIN0001234\",\n  \"bankName\": \"State Bank of India\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": ["{{base_url}}"],
+              "path": ["orders"]
+            },
+            "description": "Create a new instant payout order that can be matched with payin orders."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Payout order created successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('refID');",
+                  "    pm.expect(jsonData.data).to.have.property('instantPayoutURL');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{LAST_REF_ID}}",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{LAST_REF_ID}}"]
+            },
+            "description": "Get the current status of an order using its reference ID."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order status retrieved successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('refID');",
+                  "    pm.expect(jsonData.data).to.have.property('paymentStatus');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "auth={{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders?type=payin&status=pending&limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["orders"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "payin"
+                },
+                {
+                  "key": "status",
+                  "value": "pending"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "List orders with pagination and filtering. Requires admin authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Instant Payout Marketplace",
+      "description": "Cross-vendor instant payout marketplace functionality",
+      "item": [
+        {
+          "name": "List Available Instant Payouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-hash",
+                "value": "{{x-hash}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/instant-payout/available?minAmount=100&maxAmount=1000",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "instant-payout", "available"],
+              "query": [
+                {
+                  "key": "minAmount",
+                  "value": "100"
+                },
+                {
+                  "key": "maxAmount",
+                  "value": "1000"
+                }
+              ]
+            },
+            "description": "Get list of available instant payout orders that can be matched with payin orders."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Available payouts retrieved successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payin Against Specific Payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-hash",
+                "value": "{{x-hash}}"
+              },
+              {
+                "key": "vendor",
+                "value": "{{vendor_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"customerUPIID\": \"customer@paytm\",\n  \"customerMobile\": \"9876543210\",\n  \"customerName\": \"John Doe\",\n  \"idempotencyKey\": \"{{$timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/instant-payout/{{PAYOUT_REF_ID}}/create-payin",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "instant-payout", "{{PAYOUT_REF_ID}}", "create-payin"]
+            },
+            "description": "Create a payin order specifically against a selected instant payout order for cross-vendor matching."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cross-vendor payin created successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('payinRefID');",
+                  "    pm.expect(jsonData.data).to.have.property('redirectURL');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Claim Instant Payout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/instant-payout/{{PAYOUT_REF_ID}}/claim",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "instant-payout", "{{PAYOUT_REF_ID}}", "claim"]
+            },
+            "description": "Claim an instant payout order for processing."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Payin-Payout Matching",
+      "description": "End-to-end payin-payout matching and completion",
+      "item": [
+        {
+          "name": "Complete Payin Matching",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN123456789\",\n  \"confirmedBy\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payin-matching/complete/{{PAYIN_ORDER_ID}}",
+              "host": ["{{base_url}}"],
+              "path": ["payin-matching", "complete", "{{PAYIN_ORDER_ID}}"]
+            },
+            "description": "Complete the payin-payout matching process for a specific payin order. Call this when payment is confirmed."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Payin matching completed successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('payinOrderId');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Process Pending Payin Matching",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payin-matching/process-pending",
+              "host": ["{{base_url}}"],
+              "path": ["payin-matching", "process-pending"]
+            },
+            "description": "Process all pending payin orders that need matching completion. Can be used as a cron job."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Pending matching processed successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property('processed');",
+                  "    pm.expect(jsonData.data).to.have.property('total');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payin Matching Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payin-matching/status",
+              "host": ["{{base_url}}"],
+              "path": ["payin-matching", "status"]
+            },
+            "description": "Get status of pending payin orders that need matching."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Instant Payout Batch Processing",
+      "description": "Instant payout batch processing and completion",
+      "item": [
+        {
+          "name": "Complete Instant Payout Batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TXN123456789\",\n  \"confirmedBy\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instant-payout/complete/{{PAYIN_ORDER_ID}}",
+              "host": ["{{base_url}}"],
+              "path": ["instant-payout", "complete", "{{PAYIN_ORDER_ID}}"]
+            },
+            "description": "Complete instant payout batch for a specific payin order."
+          },
+          "response": []
+        },
+        {
+          "name": "Process All Pending Instant Payouts",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/instant-payout/process-pending",
+              "host": ["{{base_url}}"],
+              "path": ["instant-payout", "process-pending"]
+            },
+            "description": "Process all pending instant payout batches."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Instant Payout Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/instant-payout/status",
+              "host": ["{{base_url}}"],
+              "path": ["instant-payout", "status"]
+            },
+            "description": "Get status of pending instant payout batches."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Communication",
+      "description": "Chat and communication features for instant payouts",
+      "item": [
+        {
+          "name": "Get Instant Payout Chat",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-hash",
+                "value": "{{x-hash}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/{{LAST_REF_ID}}/chat",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{LAST_REF_ID}}", "chat"]
+            },
+            "description": "Get chat messages for an instant payout order."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Chat Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-hash",
+                "value": "{{x-hash}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Payment completed successfully\",\n  \"sender\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{LAST_REF_ID}}/chat",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{LAST_REF_ID}}", "chat"]
+            },
+            "description": "Send a chat message for an instant payout order."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Debug & Monitoring",
+      "description": "Debug endpoints and system health monitoring",
+      "item": [
+        {
+          "name": "Debug Available Payouts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/debug/payouts?vendor={{vendor_id}}&amount=500",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "debug", "payouts"],
+              "query": [
+                {
+                  "key": "vendor",
+                  "value": "{{vendor_id}}"
+                },
+                {
+                  "key": "amount",
+                  "value": "500"
+                }
+              ]
+            },
+            "description": "Debug endpoint to check available payouts for matching. Useful for troubleshooting."
+          },
+          "response": []
+        },
+        {
+          "name": "Instant Payout Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health-monitor/instant-payout",
+              "host": ["{{base_url}}"],
+              "path": ["health-monitor", "instant-payout"]
+            },
+            "description": "Get instant payout system health metrics."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Authentication",
+      "description": "Authentication endpoints for admin access",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "description": "Login as admin to get JWT token for protected endpoints."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login successful', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    ",
+                  "    // Store JWT token for subsequent requests",
+                  "    if (jsonData.token) {",
+                  "        pm.environment.set('jwt_token', jsonData.token);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
