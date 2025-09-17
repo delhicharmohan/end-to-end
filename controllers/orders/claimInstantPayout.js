@@ -23,6 +23,7 @@ module.exports = async function claimInstantPayout(req, res) {
     const vendor = payload.vendor;
     const amountFromToken = parseFloat(payload.amount);
     const idempotencyKey = payload.idempotencyKey;
+    const returnUrl = payload.returnUrl; // Extract returnUrl from token
 
     if (!vendor || !idempotencyKey) {
       return res.status(400).send("Invalid token payload");
@@ -38,6 +39,10 @@ module.exports = async function claimInstantPayout(req, res) {
     if (idemRows.length) {
       const existing = idemRows[0].payin_ref_id;
       if (existing) {
+        // If returnUrl is provided, we need to update the existing payin order
+        if (returnUrl) {
+          await pool.query("UPDATE orders SET returnUrl = ? WHERE refID = ?", [returnUrl, existing]);
+        }
         return res.redirect(302, `/#/pay/${existing}`);
       }
       // Record exists without payin_ref_id: proceed to (re)create below
@@ -101,7 +106,7 @@ module.exports = async function claimInstantPayout(req, res) {
       merchantOrderId,
       amount: amountToPayin,
       mode: 'upi',
-      returnUrl: '',
+      returnUrl: returnUrl || '', // Use returnUrl from token if available
       paymentStatus: 'pending',
       validatorUsername: '',
       validatorUPIID: '',

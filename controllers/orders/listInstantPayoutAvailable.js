@@ -8,12 +8,30 @@ const claimToken = require("../../helpers/utils/claimToken");
  * List anonymized, eligible instant payout orders (amounts only) for cross-vendor matching.
  * Security: validateHash should run before this handler to set req.clientName and validate vendor/x-key/x-hash.
  * Visibility: amounts only; do not expose UPI or origin vendor.
+ * 
+ * Query Parameters:
+ * - returnUrl: Optional URL to redirect customer after successful payment completion
  */
 module.exports = async function listInstantPayoutAvailable(req, res) {
   try {
     const vendor = req.headers.vendor; // selecting vendor (authenticated via validateHash)
     if (!vendor) {
       return res.status(400).json({ success: false, message: "Missing vendor header" });
+    }
+
+    // Extract returnUrl from query parameters
+    const { returnUrl } = req.query;
+    
+    // Validate returnUrl if provided
+    if (returnUrl) {
+      try {
+        new URL(returnUrl); // Basic URL validation
+        if (returnUrl.length > 2048) {
+          return res.status(400).json({ success: false, message: 'returnUrl too long (max 2048 characters)' });
+        }
+      } catch (e) {
+        return res.status(400).json({ success: false, message: 'Invalid returnUrl format' });
+      }
     }
 
     const pool = await poolPromise;
@@ -54,7 +72,8 @@ module.exports = async function listInstantPayoutAvailable(req, res) {
         iat: nowSec,
         ttl: ttlSec,
         nonce: uuidv4(),
-        idempotencyKey: uuidv4()
+        idempotencyKey: uuidv4(),
+        ...(returnUrl && { returnUrl }) // Include returnUrl in token if provided
       };
       const token = claimToken.sign(payload);
       const claimURL = `${base}/api/v1/orders/instant-payout/${r.refID}/claim?token=${encodeURIComponent(token)}`;
