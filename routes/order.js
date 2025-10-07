@@ -116,10 +116,17 @@ router.get("/debug/payouts", async (req, res) => {
   try {
     const { vendor, amount } = req.query;
     const pool = await poolPromise;
+-    const now = moment().tz(process.env.TIMEZONE);
+-    
+-    const thirtyMinutesAgo = now.subtract(30, "minutes").format("YYYY-MM-DD HH:mm:ss");
     const now = moment().tz(process.env.TIMEZONE);
-    
-    const thirtyMinutesAgo = now.subtract(30, "minutes").format("YYYY-MM-DD HH:mm:ss");
-    const oneHourAgo = now.subtract(60, "minutes").format("YYYY-MM-DD HH:mm:ss");
+
+    const thirtyMinutesAgo = moment().tz(process.env.TIMEZONE)
+      .subtract(30, "minutes")
+      .format("YYYY-MM-DD HH:mm:ss");
+    const oneHourAgo = moment().tz(process.env.TIMEZONE)
+      .subtract(60, "minutes")
+      .format("YYYY-MM-DD HH:mm:ss");
     
     // Get all unassigned payouts
     const query = `
@@ -163,6 +170,20 @@ router.get("/debug/payouts", async (req, res) => {
           amount,
           timeWindow: oneHourAgo
         }
+      }
+    });
+  } catch (error) {
+    console.error("Debug endpoint error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+      }
+    });
+  } catch (error) {
+    console.error("Debug endpoint error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
       }
     });
   } catch (error) {

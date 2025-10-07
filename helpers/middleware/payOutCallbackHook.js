@@ -37,9 +37,12 @@ async function payOutCallbackHook(req, res) {
 
       if(req.order.type =='payout' &&  (typeof req.order.payout_type !== undefined) && req.order.payout_type == 'instant') {
         callBackPayload.walletStatus = 'unlock';
-        if(callBackPayload.status  != 'approved') {
+        // Only override status to 'approved' if the order is actually approved
+        // Don't force 'approved' status for expired, failed, or other statuses
+        if(callBackPayload.status === 'approved') {
           callBackPayload.status = 'approved';
         }
+        // For expired orders, keep the actual status (expired, failed, etc.)
       }
 
       // Send a POST request to payout callbackURL using the request library (async version)

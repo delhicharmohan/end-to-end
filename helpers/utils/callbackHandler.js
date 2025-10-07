@@ -126,7 +126,7 @@ async function sendPayoutCallback(order, callbackURL, transactionID) {
       amount: parseFloat(order.amount),
       orderId: order.merchantOrderId,
       utr: transactionID,
-      status: 'approved',
+      status: order.paymentStatus || 'approved', // Use actual order status instead of hardcoding 'approved'
     };
 
     // Add wallet unlock status for instant payouts

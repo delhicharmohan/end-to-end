@@ -32,14 +32,17 @@ async function findIdealOrder(vendor, amount, customerMobile = '') {
   
   // Extended time windows for better matching
   const fifteenMinutesAgo = now
+    .clone()
     .subtract(15, "minutes")
     .format("YYYY-MM-DD HH:mm:ss");
 
   const thirtyMinutesAgo = now
+    .clone()
     .subtract(30, "minutes")
     .format("YYYY-MM-DD HH:mm:ss");
 
   const oneHourAgo = now
+    .clone()
     .subtract(60, "minutes")
     .format("YYYY-MM-DD HH:mm:ss");
 

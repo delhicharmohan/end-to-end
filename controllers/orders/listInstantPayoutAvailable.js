@@ -25,7 +25,25 @@ module.exports = async function listInstantPayoutAvailable(req, res) {
     // Validate returnUrl if provided
     if (returnUrl) {
       try {
-        new URL(returnUrl); // Basic URL validation
+        const parsedUrl = new URL(returnUrl);
+        
+        // Only allow HTTP/HTTPS protocols
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          return res.status(400).json({ success: false, message: 'returnUrl must use HTTP or HTTPS protocol' });
+        }
+        
+        // Prevent localhost/private IP redirects in production
+        if (process.env.NODE_ENV === 'production') {
+          const hostname = parsedUrl.hostname.toLowerCase();
+          if (hostname === 'localhost' || 
+              hostname.startsWith('127.') || 
+              hostname.startsWith('192.168.') || 
+              hostname.startsWith('10.') ||
+              hostname.match(/^172\.(1[6-9]|2[0-9]|3[01])\./)) {
+            return res.status(400).json({ success: false, message: 'returnUrl cannot redirect to private networks' });
+          }
+        }
+        
         if (returnUrl.length > 2048) {
           return res.status(400).json({ success: false, message: 'returnUrl too long (max 2048 characters)' });
         }
