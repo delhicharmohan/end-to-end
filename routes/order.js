@@ -174,19 +174,5 @@ router.get("/debug/payouts", async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-      }
-    });
-  } catch (error) {
-    console.error("Debug endpoint error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-      }
-    });
-  } catch (error) {
-    console.error("Debug endpoint error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 module.exports = router;
