@@ -33,3 +33,9 @@ CREATE TABLE `completion_logs` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Audit trail for completion events';
 
+
+
+
+
+
+

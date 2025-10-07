@@ -269,7 +269,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/orders/instant-payout/available?minAmount=100&maxAmount=1000",
+              "raw": "{{base_url}}/orders/instant-payout/available?minAmount=100&maxAmount=1000&returnUrl=https://your-app.com/success",
               "host": ["{{base_url}}"],
               "path": ["orders", "instant-payout", "available"],
               "query": [
@@ -280,10 +280,15 @@
                 {
                   "key": "maxAmount",
                   "value": "1000"
+                },
+                {
+                  "key": "returnUrl",
+                  "value": "https://your-app.com/success",
+                  "description": "Optional URL to redirect customer after successful payment completion"
                 }
               ]
             },
-            "description": "Get list of available instant payout orders that can be matched with payin orders."
+            "description": "Get list of available instant payout orders that can be matched with payin orders. Use returnUrl parameter to redirect customers back to your application after successful payment completion."
           },
           "response": [],
           "event": [

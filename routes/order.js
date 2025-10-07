@@ -116,9 +116,6 @@ router.get("/debug/payouts", async (req, res) => {
   try {
     const { vendor, amount } = req.query;
     const pool = await poolPromise;
--    const now = moment().tz(process.env.TIMEZONE);
--    
--    const thirtyMinutesAgo = now.subtract(30, "minutes").format("YYYY-MM-DD HH:mm:ss");
     const now = moment().tz(process.env.TIMEZONE);
 
     const thirtyMinutesAgo = moment().tz(process.env.TIMEZONE)
