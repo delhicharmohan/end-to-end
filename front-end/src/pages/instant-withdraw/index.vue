@@ -117,7 +117,7 @@
             <!-- Progress Text -->
             <div class="absolute text-center">
               <p class="text-4xl font-bold text-white drop-shadow-lg"> {{ completedPercentage.toFixed(0) }} %</p>
-              <p class="text-sm text-blue-100 font-medium">{{ payeeConnected ? 'Processing' : 'Completed' }}</p>
+              <p class="text-sm text-blue-100 font-medium">{{ isCompleted ? 'Completed' : 'Processing' }}</p>
             </div>
           </div>
 
@@ -134,7 +134,7 @@
               </div>
               <div class="text-center">
                 <p class="text-xs text-blue-100 font-medium mb-1">Paid</p>
-                <p class="text-xl font-bold text-green-300">₹{{ paid }}</p>
+                <p class="text-xl font-bold text-green-300">{{ paidText }}</p>
               </div>
               <div class="text-center">
                 <p class="text-xs text-blue-100 font-medium mb-1">Balance</p>
@@ -364,7 +364,11 @@ export default {
   watch: {
 
   },
-  computed: {},
+  computed: {
+    paidText() {
+      return this.isCompleted ? `₹${this.paid}` : '—';
+    }
+  },
   created() {
     // Initialize socket connection
     this.socket = io(process.env.VUE_APP_SOCKET_URL, {
@@ -574,6 +578,11 @@ export default {
           console.log("Item with this UUID already exists in pendingList.");
         }
 
+        // If server confirms batch (presence of system_confirmed_at or type=batch_completed), mark UI completed
+        if ((item && (item.system_confirmed_at || item.type === 'batch_completed')) && this.paid > 0) {
+          this.isCompleted = true;
+        }
+
         this.refreshPaymentStatus();
       });
     },
@@ -596,6 +605,8 @@ export default {
           this.amount = response.data.data.total;
           this.paid = response.data.data.paid;
           this.balance = response.data.data.balance;
+          // Mark UI completed once any paid amount is reflected from backend
+          this.isCompleted = this.paid > 0 && this.balance === 0;
           if (response.data.data.expiate == true) {
             // expiate to admin as a request!!
             if (this.isExpiateToAdmin == false) {
